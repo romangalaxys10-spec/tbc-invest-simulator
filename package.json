@@ -1,0 +1,13 @@
+{
+  "name": "tbc-invest-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live-price investment simulator for instruments available via TBC Bank Georgia / TBC Capital brokerage",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  }
+}
