@@ -409,32 +409,37 @@ function viewEvents(d) {
     <div class="playbook-container" style="margin-top:16px">
       <div class="playbook-header">
         <span class="playbook-title">⚡ Asset Class Reaction Playbook</span>
-        <span class="playbook-sub">Cross-asset positioning guide based on macro catalysts</span>
+        <span class="playbook-sub">Cross-asset positioning guide with catalyst dates, impact strength &amp; directional sensitivity</span>
       </div>
       <div class="playbook-grid">
         <div class="playbook-card">
           <div class="playbook-card-head">
             <span class="playbook-trigger-icon">🔥</span>
-            <div>
-              <div class="playbook-trigger-title">Hotter Inflation</div>
-              <div class="playbook-trigger-sub">CPI / PCE Beat · High Wage Growth</div>
+            <div style="flex:1">
+              <div class="playbook-trigger-title">Hotter Inflation Shock</div>
+              <div class="playbook-trigger-sub">CPI / PCE Beat · Sticky Wages</div>
             </div>
+            <span class="macro-impact-badge high"><span class="impact-dot"></span>HIGH IMPACT</span>
+          </div>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">📅 <b>Next: Sep 11, 2026</b> · 16:30 GET (08:30 EDT)</span>
+            <span class="playbook-meta-item">⚡ Strength: <b style="color:var(--down)">★★★★★ 9.4/10</b></span>
           </div>
           <div class="playbook-mechanism">USD strengthens, bond yields spike, rate cut expectations pushed back.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bear">🔴 Bearish</span>
-              <span class="playbook-asset-name">Growth &amp; Tech Stocks</span>
+              <span class="playbook-asset-name">Growth &amp; Tech Stocks <span class="playbook-asset-pwr high">-4.5% beta</span></span>
               <span class="playbook-asset-hint">Multiple compression from higher discount rates</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Bullish</span>
-              <span class="playbook-asset-name">USD &amp; Treasury Yields</span>
+              <span class="playbook-asset-name">USD &amp; Treasury Yields <span class="playbook-asset-pwr med">+2.8% beta</span></span>
               <span class="playbook-asset-hint">Higher terminal rate pricing</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge neutral">⚪ Resilient</span>
-              <span class="playbook-asset-name">Energy &amp; Cash Equivalents</span>
+              <span class="playbook-asset-name">Energy &amp; Cash Equivalents <span class="playbook-asset-pwr low">Hedge</span></span>
               <span class="playbook-asset-hint">Commodity inflation hedge &amp; high risk-free yield</span>
             </div>
           </div>
@@ -443,26 +448,31 @@ function viewEvents(d) {
         <div class="playbook-card">
           <div class="playbook-card-head">
             <span class="playbook-trigger-icon">🧊</span>
-            <div>
+            <div style="flex:1">
               <div class="playbook-trigger-title">Cooling Inflation / Rate Cuts</div>
               <div class="playbook-trigger-sub">Soft CPI · Fed Easing Cycle</div>
             </div>
+            <span class="macro-impact-badge high"><span class="impact-dot"></span>VERY HIGH</span>
+          </div>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">📅 <b>Next: Sep 16, 2026</b> · 22:00 GET (14:00 EDT)</span>
+            <span class="playbook-meta-item">⚡ Strength: <b style="color:var(--up)">★★★★★ 9.8/10</b></span>
           </div>
           <div class="playbook-mechanism">Liquidity expands, discount rates drop, risk appetite accelerates.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Bullish</span>
-              <span class="playbook-asset-name">Equities &amp; High-Beta Tech</span>
+              <span class="playbook-asset-name">Equities &amp; High-Beta Tech <span class="playbook-asset-pwr high">+5.2% beta</span></span>
               <span class="playbook-asset-hint">Valuation expansion on cheaper capital</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Bullish</span>
-              <span class="playbook-asset-name">Crypto &amp; Gold</span>
+              <span class="playbook-asset-name">Crypto &amp; Gold <span class="playbook-asset-pwr high">+6.0% beta</span></span>
               <span class="playbook-asset-hint">Fiat debasement hedge &amp; global liquidity expansion</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge bear">🔴 Bearish</span>
-              <span class="playbook-asset-name">USD Cash Yield</span>
+              <span class="playbook-asset-name">USD Cash Yield <span class="playbook-asset-pwr med">-2.1% yield</span></span>
               <span class="playbook-asset-hint">Money market yields decline as Fed cuts rates</span>
             </div>
           </div>
@@ -471,26 +481,31 @@ function viewEvents(d) {
         <div class="playbook-card">
           <div class="playbook-card-head">
             <span class="playbook-trigger-icon">🇯🇵</span>
-            <div>
+            <div style="flex:1">
               <div class="playbook-trigger-title">BOJ Hike / Yen Spike</div>
               <div class="playbook-trigger-sub">Yen Carry Trade Deleveraging</div>
             </div>
+            <span class="macro-impact-badge high"><span class="impact-dot"></span>CRITICAL</span>
+          </div>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">📅 <b>Next: Sep 18, 2026</b> · 07:00 GET (Asia Open)</span>
+            <span class="playbook-meta-item">⚡ Strength: <b style="color:#fbbf24">★★★★★ 9.1/10</b></span>
           </div>
           <div class="playbook-mechanism">Global leveraged carry trades rapidly unwind, prompting forced selling.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bear">🔴 Bearish</span>
-              <span class="playbook-asset-name">Global Tech &amp; Megacap AI</span>
+              <span class="playbook-asset-name">Global Tech &amp; Megacap AI <span class="playbook-asset-pwr high">-6.5% shock</span></span>
               <span class="playbook-asset-hint">Liquidated first to cover FX margin calls</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Bullish</span>
-              <span class="playbook-asset-name">Japanese Yen (JPY)</span>
+              <span class="playbook-asset-name">Japanese Yen (JPY) <span class="playbook-asset-pwr high">+4.8% spike</span></span>
               <span class="playbook-asset-hint">Short squeeze &amp; yield spread narrowing</span>
             </div>
             <div class="playbook-asset-row">
               <span class="playbook-badge neutral">⚠️ Volatile</span>
-              <span class="playbook-asset-name">Broad Market Risk Assets</span>
+              <span class="playbook-asset-name">Broad Market Risk Assets <span class="playbook-asset-pwr med">VIX &gt; 25</span></span>
               <span class="playbook-asset-hint">Spike in VIX &amp; sharp intraday gap risk</span>
             </div>
           </div>
