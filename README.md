@@ -118,6 +118,12 @@ Invite token: `ROK78RJKNW` · [z.ai/subscribe?ic=ROK78RJKNW](https://z.ai/subscr
 
 ---
 
+## 🛡️ Never lose features
+
+- **`FEATURES.md`** — the canonical registry of every feature + where its code lives. Update it in the same commit as any feature change.
+- **`scripts/verify.js`** — automated feature-loss detector (58 features). Run locally (`node scripts/verify.js`) or against production (`node scripts/verify.js https://…vercel.app`). Must print **ALL FEATURES PRESENT** before any release.
+- **Release tags** — every verified state is tagged (`v2.0.0` = feature-complete snapshot). Recovery: `git checkout vX.Y.Z -- <file>`.
+
 ## ⚖️ Reality disclaimer
 
 Paper trading only, for education. Prices from Yahoo Finance (unofficial API, delayed for some exchanges). Analyst data = Wall Street consensus as reported by Yahoo. "Morgan Sachs" and "Warren Bufft" are **fictional signal engines with transparent formulas** — not affiliated with any real firm or person. Not investment advice. TBC is a trademark of TBC Bank Group; this project is unofficial and unaffiliated.
