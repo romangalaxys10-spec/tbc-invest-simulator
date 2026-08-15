@@ -337,6 +337,30 @@ async function compute() {
     </div>
     ${notice ? `<div class="notice">${notice}</div>` : ""}`;
 
+  // instrument context card
+  const simInst = document.getElementById("simInstrument");
+  if (simInst) simInst.innerHTML = `Simulating <b>${inst.name}</b> · ${inst.sym} · live <span class="px">${fmtMoney(h.price, ccy)}</span>`;
+
+  // timeline: entry → horizon, with today marker
+  const tl = document.getElementById("simTimeline");
+  if (tl) {
+    const span = Math.max(1, horizonEndTs - entryC.t);
+    const todayPct = Math.max(0, Math.min(100, ((nowTs() - entryC.t) / span) * 100));
+    tl.innerHTML = `
+      <div class="tl-track">
+        <div class="tl-dot" style="left:0%" title="Entry ${dstr(entryC.t)}"></div>
+        <div class="tl-dot today" style="left:${todayPct}%" title="Today"></div>
+        <div class="tl-dot goal" style="left:100%" title="Horizon end ${dstr(horizonEndTs)}"></div>
+      </div>
+      <div class="tl-labels"><span>📅 ${dstr(entryC.t)}</span><span>today · ${daysHeld}d held</span><span>🎯 ${dstr(horizonEndTs)}</span></div>`;
+  }
+
+  // narrative sentence
+  const nar = document.getElementById("simNarrative");
+  if (nar) {
+    nar.innerHTML = `If you had invested <b>${fmtMoney(amount, ccy)}</b> in <b>${inst.sym}</b> on <b>${dstr(entryC.t)}</b>, today you'd have <b class="${signCls(plNow)}">${fmtMoney(valueNow, ccy)} (${fmtPct(pctNow)})</b> — ${goalReached ? `<span class="pos">goal hit${hit ? " after " + Math.round((hit.t - entryC.t) / DAY) + " days ✓" : " ✓"}</span>` : `goal ${(progress * 100).toFixed(0)}% reached`}.`;
+  }
+
   drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs: entryC.t });
   els.chartSub.textContent = `${inst.sym} · ${dstr(entryC.t)} → ${dstr(last.t)} · total-return (adj) basis`;
 
@@ -402,7 +426,11 @@ function drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, ent
 let debounceTimer;
 function scheduleCompute() {
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => compute(), 300);
+  debounceTimer = setTimeout(() => {
+    if (horizonRange) horizonRange.value = Math.min(1095, Math.max(7, Number(els.horizon.value) || 90));
+    if (targetRange) targetRange.value = Math.min(100, Math.max(1, Number(els.target.value) || 10));
+    compute();
+  }, 300);
 }
 
 els.tabs.addEventListener("click", (e) => {
@@ -423,6 +451,11 @@ els.search.addEventListener("input", () => {
 });
 
 [els.entryDate, els.amount, els.horizon, els.target].forEach((el) => el.addEventListener("input", scheduleCompute));
+
+// sliders ↔ number inputs
+const horizonRange = $("horizonRange"), targetRange = $("targetRange");
+horizonRange?.addEventListener("input", () => { els.horizon.value = horizonRange.value; scheduleCompute(); });
+targetRange?.addEventListener("input", () => { els.target.value = targetRange.value; scheduleCompute(); });
 
 els.quickDates.addEventListener("click", (e) => {
   const b = e.target.closest("button");

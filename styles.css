@@ -677,3 +677,51 @@ label[for="tradeTrigger"], #triggerWrap { display: flex; flex-direction: column;
   .result-grid { grid-template-columns: 1fr; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---------- what-if simulator v2 ---------- */
+.sim-instrument {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 13px; color: var(--muted); margin-bottom: 14px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 9px 13px;
+}
+.sim-instrument b { color: var(--text); font-size: 14px; }
+.sim-instrument .px { font-family: var(--mono); color: var(--accent-2); font-weight: 700; }
+.controls-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ctrl-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 13px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ctrl-card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,.15); }
+.ctrl-card label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; font-weight: 700; color: var(--text); }
+.ctrl-card .field-hint { font-size: 10px; font-weight: 500; color: var(--muted); }
+.ctrl-card input { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; font-family: var(--mono); box-shadow: inset 0 1px 3px rgba(0,0,0,.3); }
+.ctrl-card.date { border-left: 3px solid #a78bfa; }
+.ctrl-card.amount { border-left: 3px solid #34d399; }
+.ctrl-card.horizon { border-left: 3px solid #fbbf24; }
+.ctrl-card.target { border-left: 3px solid #f87171; }
+.ctrl-with-slider { display: flex; flex-direction: column; gap: 8px; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; height: 5px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), #34d399); outline: none; border: none; padding: 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--accent); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); cursor: pointer;
+}
+.sim-timeline { display: flex; flex-direction: column; gap: 4px; margin: 14px 2px 2px; }
+.sim-timeline .tl-track { position: relative; height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--accent), #fbbf24); }
+.sim-timeline .tl-dot {
+  position: absolute; top: 50%; transform: translate(-50%, -50%); width: 13px; height: 13px;
+  border-radius: 50%; background: var(--panel); border: 3px solid var(--accent);
+}
+.sim-timeline .tl-dot.goal { border-color: #fbbf24; }
+.sim-timeline .tl-dot.today { border-color: #34d399; background: #34d399; }
+.sim-timeline .tl-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+.sim-narrative { font-size: 13.5px; line-height: 1.7; color: var(--muted); margin-top: 10px; }
+.sim-narrative b { font-family: var(--mono); font-size: 14px; }
+.sim-narrative .pos { color: var(--up); } .sim-narrative .neg { color: var(--down); }
+@media (max-width: 1080px) { .controls-grid { grid-template-columns: repeat(2, 1fr); } }

@@ -60,28 +60,36 @@
       <div class="panel section-panel" data-section="controls">
         <div class="chart-head"><h2>⏪ What-if Simulator</h2><div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div></div>
         <div class="panel-body">
-        <p class="sim-explainer"><b>How it works:</b> pick a <b>past date</b> when you would have invested, enter an <b>amount</b>, and the result below shows what that investment would be worth <b>today</b> — using real historical prices (dividends included). Set a <b>target gain %</b> and <b>horizon</b> to see if (and when) your goal would have been hit.</p>
+        <div class="sim-instrument" id="simInstrument">Select an instrument from the left to simulate</div>
         <div class="controls-grid">
-          <label>Entry date
-            <span class="field-hint">the day you "would have" bought</span>
+          <div class="ctrl-card date">
+            <label>📅 Entry date <span class="field-hint">the day you "would have" bought</span></label>
             <input type="date" id="entryDate" />
-          </label>
-          <label>Amount invested
-            <span class="field-hint">pretend money (paper only)</span>
+          </div>
+          <div class="ctrl-card amount">
+            <label>💵 Amount invested <span class="field-hint">pretend money (paper only)</span></label>
             <div class="amount-row">
               <input type="number" id="amount" value="1000" min="1" step="any" />
               <span class="ccy-badge" id="ccyBadge">USD</span>
             </div>
-          </label>
-          <label>Goal horizon (days)
-            <span class="field-hint">check the goal after X days</span>
-            <input type="number" id="horizon" value="90" min="1" max="3650" step="1" />
-          </label>
-          <label>Target gain %
-            <span class="field-hint">your profit goal, e.g. +10%</span>
-            <input type="number" id="target" value="10" min="0.1" max="1000" step="any" />
-          </label>
+          </div>
+          <div class="ctrl-card horizon">
+            <label>⏱ Goal horizon <span class="field-hint">check the goal after X days</span></label>
+            <div class="ctrl-with-slider">
+              <input type="number" id="horizon" value="90" min="1" max="3650" step="1" />
+              <input type="range" id="horizonRange" min="7" max="1095" value="90" step="1" />
+            </div>
+          </div>
+          <div class="ctrl-card target">
+            <label>🎯 Target gain <span class="field-hint">your profit goal</span></label>
+            <div class="ctrl-with-slider">
+              <input type="number" id="target" value="10" min="0.1" max="1000" step="any" />
+              <input type="range" id="targetRange" min="1" max="100" value="10" step="0.5" />
+            </div>
+          </div>
         </div>
+        <div class="sim-timeline" id="simTimeline"></div>
+        <div class="sim-narrative" id="simNarrative"></div>
         <div class="quick-dates" id="quickDates"><span class="qd-label">Jump to:</span>
           <button data-days="30">1M ago</button>
           <button data-days="90">3M ago</button>
