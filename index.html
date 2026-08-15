@@ -90,6 +90,11 @@
         </div>
         <div class="sim-timeline" id="simTimeline"></div>
         <div class="sim-narrative" id="simNarrative"></div>
+        <div class="sim-scrub" id="simScrub" style="display:none">
+          <div class="scrub-head"><span>🎬 Scrub through time — see the exact state on any day</span></div>
+          <input type="range" id="scrubRange" min="0" max="100" value="100" step="1" />
+          <div class="scrub-readout" id="scrubReadout"></div>
+        </div>
         <div class="quick-dates" id="quickDates"><span class="qd-label">Jump to:</span>
           <button data-days="30">1M ago</button>
           <button data-days="90">3M ago</button>

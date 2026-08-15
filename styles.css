@@ -725,3 +725,18 @@ input[type="range"]::-moz-range-thumb {
 .sim-narrative b { font-family: var(--mono); font-size: 14px; }
 .sim-narrative .pos { color: var(--up); } .sim-narrative .neg { color: var(--down); }
 @media (max-width: 1080px) { .controls-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- date scrubber ---------- */
+.sim-scrub {
+  margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.scrub-head { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--accent-2); margin-bottom: 9px; }
+.sim-scrub input[type="range"] { width: 100%; }
+.scrub-readout {
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 9px;
+  font-family: var(--mono); font-size: 13px;
+}
+.scrub-readout .sr-date { font-weight: 800; color: var(--accent-2); }
+.scrub-readout .sr-val { font-weight: 800; font-size: 15px; }
+.scrub-readout .muted { font-size: 11px; font-family: Inter; }

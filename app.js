@@ -30,6 +30,8 @@ const els = {
 
 // ---------- helpers ----------
 const DAY = 86400000;
+let simCtx = null; // { window, entryAdj, amount, goalValue, ccy, goalLevel, fxUsd, fxGel }
+let scrubIdx = null;
 const dstr = (ts) => new Date(ts).toISOString().slice(0, 10);
 const nowTs = () => Date.now();
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
@@ -375,7 +377,10 @@ async function compute() {
     nar.innerHTML = `If you had invested <b>${fmtMoney(amount, ccy)}</b> in <b>${inst.sym}</b> on <b>${dstr(entryC.t)}</b>, today you'd have <b class="${signCls(plNow)}">${fmtMoney(valueNow, ccy)} (${fmtPct(pctNow)})</b> — ≈ <b>${conv(valueNow)}</b> — ${goalReached ? `<span class="pos">goal hit${hit ? " after " + Math.round((hit.t - entryC.t) / DAY) + " days ✓" : " ✓"}</span>` : `goal ${(progress * 100).toFixed(0)}% reached`}.`;
   }
 
-  drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs: entryC.t });
+  simCtx = { window, entryAdj: entryAdj, amount, goalValue, ccy, goalLevel, fxUsd, fxGel };
+  initScrubber();
+
+  drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs: entryC.t, scrubIdx });
   els.chartSub.textContent = `${inst.sym} · ${dstr(entryC.t)} → ${dstr(last.t)} · total-return (adj) basis`;
 
   // inline mini-result right inside the simulator section
@@ -391,8 +396,44 @@ async function compute() {
   }
 }
 
+// ---------- date scrubber ----------
+function initScrubber() {
+  const box = document.getElementById("simScrub");
+  const range = document.getElementById("scrubRange");
+  if (!box || !range || !simCtx || simCtx.window.length < 3) { if (box) box.style.display = "none"; return; }
+  box.style.display = "block";
+  range.max = simCtx.window.length - 1;
+  scrubIdx = simCtx.window.length - 1;
+  range.value = scrubIdx;
+  renderScrub();
+  range.oninput = () => { scrubIdx = Number(range.value); renderScrub(); };
+}
+
+function renderScrub() {
+  if (!simCtx || scrubIdx == null) return;
+  const c = simCtx.window[scrubIdx];
+  const value = simCtx.amount * (c.ac / simCtx.entryAdj);
+  const pct = value / simCtx.amount - 1;
+  const hit = c.ac >= simCtx.goalLevel;
+  const usd = value * simCtx.fxUsd;
+  const gel = usd * (simCtx.fxGel || 0);
+  const fUSD = (v) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v);
+  const fGEL = (v) => `₾${Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  document.getElementById("scrubReadout").innerHTML = `
+    <span class="sr-date">📅 ${fmtDate(c.t)}</span>
+    <span class="sr-val ${signCls(pct)}">${fmtMoney(value, simCtx.ccy)}</span>
+    <span class="${signCls(pct)}">${fmtPct(pct)}</span>
+    <span class="muted">${fUSD(usd)}${simCtx.fxGel ? ` · ${fGEL(gel)}` : ""}</span>
+    <span class="${hit ? "pos" : "muted"}">${hit ? "🎯 goal hit by this date" : "goal not yet reached"}</span>`;
+  // refresh chart marker without full recompute
+  compute.chartScrub = scrubIdx;
+  const chartEl = document.getElementById("chart");
+  if (simCtx.lastDrawArgs) drawChart({ ...simCtx.lastDrawArgs, scrubIdx });
+}
+
 // ---------- chart ----------
-function drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs }) {
+function drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs, scrubIdx }) {
+  simCtx = { ...simCtx, lastDrawArgs: { window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs } };
   const W = 920, H = 300, P = { t: 24, r: 116, b: 28, l: 16 };
   const vals = window.map((c) => amount * (c.ac / entryAdj));
   const vmax = Math.max(...vals);
@@ -429,6 +470,10 @@ function drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, ent
       <text x="${W - P.r + 8}" y="${goalY + 4}" fill="#fbbf24" font-size="12" font-family="ui-monospace">goal ${fmtMoney(goalValue, ccy)}</text>` : ""}
     <line x1="${hx}" x2="${hx}" y1="${P.t}" y2="${H - P.b}" stroke="#9d94b8" stroke-dasharray="2 5" opacity="0.7"/>
     <text x="${hx + 5}" y="${P.t + 12}" fill="#9d94b8" font-size="11">horizon</text>
+    ${scrubIdx != null && scrubIdx >= 0 && scrubIdx < window.length ? `
+    <line x1="${x(scrubIdx).toFixed(1)}" x2="${x(scrubIdx).toFixed(1)}" y1="${P.t}" y2="${H - P.b}" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.8"/>
+    <circle cx="${x(scrubIdx).toFixed(1)}" cy="${y(vals[scrubIdx]).toFixed(1)}" r="5" fill="#fff" stroke="#8b5cf6" stroke-width="2.5"/>
+    <text x="${x(scrubIdx).toFixed(1)}" y="${(y(vals[scrubIdx]) - 12).toFixed(1)}" font-size="11" font-weight="700" text-anchor="middle" fill="#fff" font-family="ui-monospace">${fmtMoney(vals[scrubIdx], ccy)}</text>` : ""}
     <circle cx="${x(window.length - 1)}" cy="${y(lastV)}" r="4.5" fill="${lastV >= amount ? "#34d399" : "#f87171"}"/>
     <text x="${x(window.length - 1) + 8}" y="${y(lastV) + 4}" fill="${lastV >= amount ? "#34d399" : "#f87171"}" font-size="13" font-weight="700" font-family="ui-monospace">${fmtMoney(lastV, ccy)}</text>
     <text x="${P.l}" y="${H - 8}" fill="#9d94b8" font-size="11">${firstDate}</text>
