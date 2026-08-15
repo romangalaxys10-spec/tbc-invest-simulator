@@ -57,8 +57,9 @@
       <div class="panel token-banner" id="tokenBanner" style="display:none"></div>
       <div class="panel selected" id="selectedCard"></div>
 
-      <div class="panel controls">
-        <h2>Simulation entry</h2>
+      <div class="panel section-panel" data-section="controls">
+        <div class="chart-head"><h2>Simulation entry</h2><div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div></div>
+        <div class="panel-body">
         <div class="controls-grid">
           <label>Entry date
             <input type="date" id="entryDate" />
@@ -83,19 +84,25 @@
           <button data-days="365">1Y ago</button>
           <button data-days="1095">3Y ago</button>
         </div>
+        </div>
       </div>
 
-      <div class="panel result" id="resultCard"></div>
+      <div class="panel section-panel" data-section="result">
+        <div class="chart-head"><h2>Simulation result</h2><div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div></div>
+        <div class="panel-body" id="resultCard"></div>
+      </div>
       <!-- Intraday radar -->
-      <div class="panel intraday-panel" id="intradayPanel"></div>
-      <div class="panel chart-panel">
+      <div class="panel intraday-panel section-panel" data-section="intraday" id="intradayPanel"></div>
+      <div class="panel chart-panel section-panel" data-section="chart">
         <div class="chart-head">
           <div class="chart-mode-tabs" id="chartMode">
             <button data-m="candles" class="active">Candles &amp; signals</button>
             <button data-m="sim">Simulation</button>
           </div>
           <span class="muted" id="chartSub" style="font-size:11px"></span>
+          <div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div>
         </div>
+        <div class="panel-body" id="chartBody">
         <div id="candleWrap">
           <div class="cd-toolbar">
             <div class="cd-ranges">
@@ -122,15 +129,18 @@
           </div>
           <div id="chart"></div>
         </div>
+        </div>
       </div>
 
       <!-- Pattern Lab -->
-      <div class="panel pattern-lab" id="patternLab">
+      <div class="panel pattern-lab section-panel" data-section="patternlab" id="patternLab">
         <p class="hint">Loading pattern analysis…</p>
       </div>
 
       <!-- Full analysis -->
-      <div class="panel analysis-panel" id="analysisCard">
+      <div class="panel analysis-panel section-panel" data-section="analysis" id="analysisCard">
+        <div class="chart-head"><h2>Full analysis &amp; signals</h2><div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div></div>
+        <div class="panel-body">
         <div class="signal-cards" id="signalCards"></div>
         <div class="analysis-head">
           <h2>Full analysis</h2>

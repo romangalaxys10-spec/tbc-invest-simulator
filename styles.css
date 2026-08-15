@@ -146,6 +146,27 @@ body {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: 16px; padding: 18px;
 }
+.collapse-btn {
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+  width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 12px;
+  display: inline-grid; place-items: center; transition: .15s; flex-shrink: 0;
+}
+.collapse-btn:hover { border-color: var(--accent); color: var(--accent-2); }
+.panel.collapsed { padding-bottom: 12px; }
+.panel.collapsed .panel-body { display: none; }
+.panel.collapsed .collapse-btn { transform: rotate(-90deg); }
+.section-ctrls { display: flex; gap: 5px; align-items: center; margin-left: auto; flex-shrink: 0; }
+.sc-btn {
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+  width: 27px; height: 27px; border-radius: 8px; cursor: pointer; font-size: 12px;
+  display: inline-grid; place-items: center; transition: .15s; line-height: 1;
+}
+.sc-btn:hover { border-color: var(--accent); color: var(--accent-2); }
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }
+[data-section].dragging { opacity: .45; border-style: dashed; }
+[data-section] { position: relative; }
+.chart-head { cursor: pointer; user-select: none; }
 
 .asset-tabs {
   max-width: 1440px; margin: 18px auto -2px; padding: 0 28px;

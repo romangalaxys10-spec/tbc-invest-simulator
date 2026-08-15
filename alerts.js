@@ -1,6 +1,6 @@
 // Intraday radar: hourly market scan, alert bell, and the intraday box.
 
-import { store } from "./store.js";
+import { store, collapse } from "./store.js";
 import { CATEGORY_LABELS } from "./instruments.js";
 
 const $ = (id) => document.getElementById(id);
@@ -80,8 +80,10 @@ export function renderIntraday() {
   const stars = (n) => "★".repeat(n) + '<span class="dim">★</span>'.repeat(3 - n);
   const fmtP = (v) => (v >= 1000 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(4));
 
+  box.classList.toggle("collapsed", collapse.get("intraday"));
   box.innerHTML = `
     <div class="radar-hero">
+      <div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div>
       <div class="radar-stats">
         <div class="radar-stat up"><span class="n">${bulls}</span><span class="l">bullish</span></div>
         <div class="radar-stat down"><span class="n">${bears}</span><span class="l">bearish</span></div>
@@ -95,6 +97,7 @@ export function renderIntraday() {
         <button class="btn small" id="radarScan">↻ Scan now</button>
       </div>
     </div>
+    <div class="panel-body">
     <div class="radar-sub">${t} · showing <b>${alerts.length}</b> ${catLabel.toLowerCase()} signal${alerts.length === 1 ? "" : "s"} of ${totalAlerts} total · switch category tabs above to change · hourly auto-scan · strength-sorted</div>
     ${shown.length ? `<div class="radar-grid">${shown.map((a) => `
       <div class="radar-card ${a.dir}">
@@ -114,7 +117,8 @@ export function renderIntraday() {
         </div>
       </div>`).join("")}</div>`
     : `<div class="empty">No ${radarFilter === "all" ? "active" : radarFilter} signals right now — the universe is quiet. Next automatic scan within the hour.</div>`}
-    <p class="hint">Paper trading only — not advice. Signals recompute on every scan.</p>`;
+    <p class="hint">Paper trading only — not advice. Signals recompute on every scan.</p>
+    </div>`;
   wireScanBtn();
   box.querySelectorAll(".rfilter").forEach((b) => {
     b.onclick = () => { radarFilter = b.dataset.f; renderIntraday(); };

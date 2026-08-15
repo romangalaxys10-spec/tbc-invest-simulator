@@ -1,7 +1,7 @@
 // Pattern Lab: dedicated pattern-based analysis with entry/exit/breakout trade
 // plans, visual schematics and text explainers + Bill Williams toolkit.
 
-import { store } from "./store.js";
+import { store, collapse } from "./store.js";
 import { analyzeWaves } from "./waves.js";
 
 const $ = (id) => document.getElementById(id);
@@ -117,15 +117,19 @@ export function renderPatternLab() {
     ${w_.fractals.lastUp ? `<button class="btn small primary pat-exec" data-sym="${sym}" data-side="buy" data-trigger="${w_.fractals.lastUp.p}" data-src="Bill Williams: fractal breakout" data-stop="${w_.fractals.lastDown?.p ?? ""}" data-target="">⚡ Execute — buy stop @ last up-fractal ${n2(w_.fractals.lastUp.p)}</button>` : ""}
   </div>` : "";
 
+  box.classList.toggle("collapsed", collapse.get("patternlab"));
   box.innerHTML = `
     <div class="chart-head">
       <h2>🕯️ Pattern Lab — ${sym} · entries, exits &amp; breakouts</h2>
+      <div class="section-ctrls"><button class="sc-btn drag-handle" title="Drag to reorder">⋮⋮</button><button class="sc-btn move-up" title="Move up">↑</button><button class="sc-btn move-down" title="Move down">↓</button><button class="sc-btn collapse-btn" title="Show/hide">▾</button></div>
       <span class="muted" style="font-size:11px">levels also drawn on the candlestick chart</span>
     </div>
+    <div class="panel-body">
     ${pats.length || williamsCard
       ? `<div class="pat-grid">${cards}${williamsCard}</div>`
       : `<div class="empty">No textbook pattern active for ${sym} right now — sometimes the honest read is "no setup". Check the Bill Williams toolkit on another instrument, or switch timeframes on the chart.</div>`}
-    <p class="hint">Detection: fractal swing pivots (4-bar) with adaptive zigzag. Plans use classical measured-move rules (neckline ± height, pole projections, wedge origins). Educational tool — not financial advice.</p>`;
+    <p class="hint">Detection: fractal swing pivots (4-bar) with adaptive zigzag. Plans use classical measured-move rules (neckline ± height, pole projections, wedge origins). Educational tool — not financial advice.</p>
+    </div>`;
 }
 
 export function initPatternLab() {

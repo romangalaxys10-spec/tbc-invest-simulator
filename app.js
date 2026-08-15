@@ -6,6 +6,7 @@ import { loadPackages } from "./packages.js";
 import { store } from "./store.js";
 import { initPatternLab } from "./patterns.js";
 import { initAlerts } from "./alerts.js";
+import { collapse } from "./store.js";
 
 // ---------- state ----------
 const state = {
@@ -491,6 +492,73 @@ function showView(which) {
 navSim.onclick = () => showView("sim");
 navPortfolio.onclick = () => showView("portfolio");
 navPackages && (navPackages.onclick = () => showView("packages"));
+
+
+// ---------- section collapse + reorder ----------
+const ORDER_KEY = "tbc_section_order";
+const sectionPanels = () => [...document.querySelectorAll("[data-section]")];
+const domOrder = () => sectionPanels().map((el) => el.dataset.section);
+function saveSectionOrder() { localStorage.setItem(ORDER_KEY, JSON.stringify(domOrder())); }
+function applySavedOrder() {
+  let order;
+  try { order = JSON.parse(localStorage.getItem(ORDER_KEY)); } catch {}
+  if (!Array.isArray(order)) return;
+  const simView = document.getElementById("simView");
+  for (const key of order) {
+    const el = document.querySelector(`[data-section="${key}"]`);
+    if (el) simView.appendChild(el);
+  }
+}
+function moveSection(key, dir) {
+  const keys = domOrder();
+  const i = keys.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]];
+  const simView = document.getElementById("simView");
+  for (const k of keys) simView.appendChild(document.querySelector(`[data-section="${k}"]`));
+  saveSectionOrder();
+}
+let dragPanel = null;
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".collapse-btn, .move-up, .move-down");
+  if (!btn) return;
+  const panel = btn.closest("[data-section]");
+  if (!panel) return;
+  const key = panel.dataset.section;
+  if (btn.classList.contains("collapse-btn")) {
+    const v = !panel.classList.contains("collapsed");
+    panel.classList.toggle("collapsed", v);
+    collapse.set(key, v);
+  } else if (btn.classList.contains("move-up")) moveSection(key, -1);
+  else moveSection(key, 1);
+});
+document.addEventListener("mousedown", (e) => {
+  const h = e.target.closest(".drag-handle");
+  if (h) h.closest("[data-section]")?.setAttribute("draggable", "true");
+});
+document.addEventListener("dragstart", (e) => {
+  const p = e.target.closest?.("[data-section]");
+  if (p) { dragPanel = p; p.classList.add("dragging"); }
+});
+document.addEventListener("dragover", (e) => {
+  const target = e.target.closest?.("[data-section]");
+  if (!dragPanel || !target || target === dragPanel) return;
+  e.preventDefault();
+  const r = target.getBoundingClientRect();
+  target.parentElement.insertBefore(dragPanel, e.clientY < r.top + r.height / 2 ? target : target.nextSibling);
+});
+document.addEventListener("drop", (e) => e.preventDefault());
+document.addEventListener("dragend", () => {
+  if (!dragPanel) return;
+  dragPanel.removeAttribute("draggable");
+  dragPanel.classList.remove("dragging");
+  saveSectionOrder();
+  dragPanel = null;
+});
+document.addEventListener("DOMContentLoaded", () => {
+  sectionPanels().forEach((el) => el.classList.toggle("collapsed", collapse.get(el.dataset.section)));
+  applySavedOrder();
+});
 
 // ---------- init ----------
 (function init() {
