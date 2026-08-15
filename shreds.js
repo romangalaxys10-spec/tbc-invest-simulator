@@ -16,6 +16,10 @@ const THEME = {
 const short = (a) => (a && a.length > 10 ? a.slice(0, 4) + "…" + a.slice(-4) : a || "—");
 const usd = (v) => "$" + Math.round(v).toLocaleString("en-US");
 
+const PKEY = "tbc_shred_providers";
+const getProviders = () => { try { return JSON.parse(localStorage.getItem(PKEY)) || []; } catch { return []; } };
+const setProviders = (list) => localStorage.setItem(PKEY, JSON.stringify(list));
+
 async function loadShreds(sym) {
   if (sym !== currentSym) { data = null; currentSym = sym; render(); }
   try {
@@ -176,19 +180,74 @@ function render() {
   });
   const rb = $("shredsRefresh");
   if (rb) rb.onclick = () => loadShreds(currentSym);
+  const cb = $("shredsConnect");
+  if (cb) cb.onclick = openProviderModal;
 }
 
 function head(sub, retry, th) {
   const color = th?.color || "#fbbf24";
+  const isSol = data?.chain === "SOL";
   return `<div class="chart-head">
     <h2 style="color:${color}">⚡ ${th?.name || "Crypto"} Shreds — ${sub}</h2>
-    <div class="legend"><button class="btn small" id="shredsRefresh">${retry ? "↻ Retry" : "↻"}</button></div>
+    <div class="legend">
+      ${isSol ? `<button class="btn small" id="shredsConnect" title="Connect external RPC/shred providers">＋ Provider</button>` : ""}
+      <button class="btn small" id="shredsRefresh">${retry ? "↻ Retry" : "↻"}</button>
+    </div>
   </div>`;
 }
 
-// providers (Solana)
-const PKEY = "tbc_shred_providers";
-const getProviders = () => { try { return JSON.parse(localStorage.getItem(PKEY)) || []; } catch { return []; } };
+async function openProviderModal() {
+  const overlay = document.getElementById("providerModal");
+  const body = document.getElementById("providerBody");
+  if (!overlay) return;
+  overlay.style.display = "grid";
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
+  const draw = (test) => {
+    const list = getProviders();
+    body.innerHTML = `
+      <h3>🔌 External shred providers (Solana)</h3>
+      <div class="sub">Add your own Solana RPC / shred-bridge endpoints (Helius, QuickNode, dRPC, your node…). Up to 3, https only. They merge into the scan and show health chips.</div>
+      <div class="prov-list">
+        ${list.length ? list.map((p, i) => `<div class="prov-row"><span class="mono">${p.url}</span><button class="btn small danger" data-rm="${i}">✕</button></div>`).join("") : '<p class="hint">No external providers — using built-in free RPCs.</p>'}
+      </div>
+      <label>Provider URL (https://…)<input type="url" id="provUrl" placeholder="https://solana.drpc.org" /></label>
+      <label>API key (optional — Bearer token)<input type="password" id="provKey" placeholder="leave empty for public endpoints" /></label>
+      <div class="summary-box" id="provTest">${test || "Test before saving — checks slot height + latency."}</div>
+      <div class="modal-actions">
+        <button class="btn" id="provClose">Close</button>
+        <button class="btn small" id="provTestBtn">Test</button>
+        <button class="btn primary" id="provSave">Save provider</button>
+      </div>`;
+    body.querySelectorAll("[data-rm]").forEach((el) => el.onclick = () => { const l = getProviders(); l.splice(+el.dataset.rm, 1); setProviders(l); draw(); });
+    document.getElementById("provClose").onclick = () => (overlay.style.display = "none");
+    document.getElementById("provTestBtn").onclick = async () => {
+      const url = document.getElementById("provUrl").value.trim();
+      const key = document.getElementById("provKey").value.trim() || null;
+      if (!url.startsWith("https://")) { document.getElementById("provTest").innerHTML = '<span class="neg">Must be an https:// URL</span>'; return; }
+      document.getElementById("provTest").innerHTML = "Testing…";
+      try {
+        const r = await fetch("/api/shreds?probe=1&symbol=SOL-USD", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: "SOL-USD", providers: [{ url, key }] }) });
+        const j = await r.json();
+        const stat = (j.providers || []).find((p) => p.host === new URL(url).host);
+        document.getElementById("provTest").innerHTML = stat
+          ? (stat.ok ? `<span class="pos">✓ ${stat.host} responded in ${stat.ms}ms</span>` : `<span class="neg">✗ ${stat.host}: ${stat.err || "failed"}</span>`)
+          : '<span class="neg">No response recorded</span>';
+      } catch (e) { document.getElementById("provTest").innerHTML = `<span class="neg">${e.message}</span>`; }
+    };
+    document.getElementById("provSave").onclick = () => {
+      const url = document.getElementById("provUrl").value.trim();
+      const key = document.getElementById("provKey").value.trim() || null;
+      if (!url.startsWith("https://")) return;
+      const l = getProviders();
+      if (l.length >= 3) { alert("Max 3 external providers"); return; }
+      if (l.some((p) => p.url === url)) { alert("Already added"); return; }
+      l.push({ url, key }); setProviders(l);
+      overlay.style.display = "none";
+      loadShreds("SOL-USD");
+    };
+  };
+  draw();
+}
 
 export function initShreds() {
   const box = $("shredsPanel");
@@ -202,6 +261,18 @@ export function initShreds() {
       if (!timer) timer = setInterval(() => { if (box.style.display !== "none" && SUPPORTED.has(currentSym)) loadShreds(currentSym); }, 15000);
     }
   };
+  const badge = document.getElementById("shredsBadge");
+  const updateBadge = () => {
+    if (!badge) return;
+    badge.style.display = store.cat === "crypto" && !SUPPORTED.has(store.symbol) ? "inline-flex" : "none";
+  };
+  if (badge) badge.onclick = () => {
+    location.hash = "#sym=SOL-USD";
+    setTimeout(() => document.getElementById("shredsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 1600);
+  };
+  window.addEventListener("cat-changed", updateBadge);
+  window.addEventListener("candles-loaded", updateBadge);
+  updateBadge();
   window.addEventListener("cat-changed", update);
   window.addEventListener("candles-loaded", update);
   update();
