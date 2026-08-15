@@ -214,9 +214,23 @@ function render() {
         ${data.flows?.length ? `<div class="flow-list">
           ${data.flows.map((w) => {
             const tier = w.usd >= 50000 ? "whale" : w.usd >= 10000 ? "big" : "std";
-            const tokCls = w.sym === "USDC" ? "usdc" : w.sym === "USDT" ? "usdt" : w.sym?.includes("BTC") ? "btc" : w.sym?.includes("ETH") ? "eth" : w.sym === "YES" ? "yes" : w.sym === "NO" ? "no" : data.chain === "PM" ? "pm" : "sol";
+            const s = String(w.sym || "").toUpperCase().trim();
+            const tokCls = s.startsWith("CALL") || s === "BUY" || s.includes("▲") ? "call"
+              : s.startsWith("PUT") || s === "SELL" || s.includes("▼") ? "put"
+              : s === "YES" ? "yes"
+              : s === "NO" ? "no"
+              : s === "USDC" ? "usdc"
+              : s === "USDT" ? "usdt"
+              : s.includes("BTC") ? "btc"
+              : s.includes("ETH") ? "eth"
+              : s.includes("SOL") ? "sol"
+              : data.chain === "PM" || s === "PM" ? "pm"
+              : data.chain === "FUT" ? "fut"
+              : data.chain === "BOND" ? "bond"
+              : data.chain === "FX" ? "fx"
+              : "generic";
             return `<a class="flow-row ${tier}" href="${w.link || '#'}" target="_blank" rel="noopener">
-              <span class="flow-token ${tokCls}">${w.sym}</span>
+              <span class="flow-token ${tokCls}" title="${w.sym}">${w.sym}</span>
               <span class="flow-amts"><b>${typeof w.amt === "number" ? w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 }) : w.amt}</b><i>${usd(w.usd)}</i></span>
               <span class="flow-addr muted">${short(w.from)} <span class="flow-arrow">→</span> ${short(w.to)}</span>
               <span class="flow-link">${data.chain === "PM" ? "market ↗" : "explorer ↗"}</span>
