@@ -272,14 +272,23 @@ function wire() {
 export function initShreds() {
   const box = $("shredsPanel");
   if (!box) return;
+  const badge = document.getElementById("shredsBadge");
+  const SOL_ECO = new Set(["SOL-USD", "BONK-USD", "WIF-USD"]); // Solana-ecosystem instruments
   const update = () => {
-    const SOL_ECO = new Set(["SOL-USD", "BONK-USD", "WIF-USD"]); // Solana-ecosystem instruments
-    const isCrypto = SOL_ECO.has(store.symbol);
-    box.style.display = isCrypto ? "block" : "none";
-    if (isCrypto) {
+    const showPanel = SOL_ECO.has(store.symbol);
+    box.style.display = showPanel ? "block" : "none";
+    if (badge) badge.style.display = store.cat === "crypto" && !showPanel ? "inline-flex" : "none";
+    if (showPanel) {
       loadShreds();
       if (!timer) timer = setInterval(() => { if (box.style.display !== "none") loadShreds(); }, 15000);
     }
+  };
+  if (badge) badge.onclick = () => {
+    location.hash = "#sym=SOL-USD"; // deep-link switches the instrument
+    setTimeout(() => {
+      const p = document.getElementById("shredsPanel");
+      if (p) p.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 1600);
   };
   window.addEventListener("cat-changed", update);
   window.addEventListener("candles-loaded", update);
