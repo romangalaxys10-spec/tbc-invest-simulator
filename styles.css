@@ -1034,5 +1034,123 @@ input[type="range"]::-moz-range-thumb {
 .macro-bias-badge.warn { background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.4); }
 .macro-bias-badge.bad { background: rgba(248,113,113,.12); color: var(--down); border: 1px solid rgba(248,113,113,.4); }
 
+/* Asset Class Reaction Playbook Card Grid */
+.playbook-container {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.playbook-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+.playbook-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.playbook-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+.playbook-card {
+  background: var(--panel-2);
+  border: 1px solid rgba(139,92,246,.15);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.playbook-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.playbook-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.playbook-trigger-icon {
+  font-size: 20px;
+  line-height: 1;
+  background: rgba(139,92,246,.12);
+  padding: 6px;
+  border-radius: 8px;
+}
+.playbook-trigger-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.playbook-trigger-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.playbook-mechanism {
+  font-size: 11px;
+  color: #d1c9e8;
+  background: rgba(0,0,0,.2);
+  padding: 6px 9px;
+  border-radius: 6px;
+  line-height: 1.35;
+  border-left: 2px solid var(--accent-2);
+}
+.playbook-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.playbook-asset-row {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  grid-template-areas:
+    "badge name"
+    "badge hint";
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: center;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.02);
+}
+.playbook-badge {
+  grid-area: badge;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.playbook-badge.bull { background: rgba(52,211,153,.15); color: var(--up); border: 1px solid rgba(52,211,153,.35); }
+.playbook-badge.bear { background: rgba(248,113,113,.15); color: var(--down); border: 1px solid rgba(248,113,113,.35); }
+.playbook-badge.neutral { background: rgba(157,148,184,.15); color: var(--muted); border: 1px solid var(--line); }
+.playbook-asset-name {
+  grid-area: name;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.playbook-asset-hint {
+  grid-area: hint;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
 
 
