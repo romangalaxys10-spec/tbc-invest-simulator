@@ -740,3 +740,23 @@ input[type="range"]::-moz-range-thumb {
 .scrub-readout .sr-date { font-weight: 800; color: var(--accent-2); }
 .scrub-readout .sr-val { font-weight: 800; font-size: 15px; }
 .scrub-readout .muted { font-size: 11px; font-family: Inter; }
+
+/* ---------- crypto shreds ---------- */
+.shreds-panel { display: flex; flex-direction: column; gap: 12px; border-left: 3px solid #fbbf24; }
+.shreds-panel h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #fbbf24; }
+.shreds-panel h3 { margin: 0 0 9px; font-size: 13px; }
+.shred-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.shred-stat {
+  display: flex; flex-direction: column; min-width: 100px; align-items: center;
+  background: var(--panel-2); border: 1px solid rgba(251,191,36,.25); border-radius: 12px; padding: 10px 14px;
+}
+.shred-stat .n { font-size: 20px; font-weight: 800; font-family: var(--mono); color: #fbbf24; }
+.shred-stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 700; }
+.shred-cols { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+.shred-programs { display: flex; flex-direction: column; gap: 8px; }
+.sp-row { display: grid; grid-template-columns: 110px 1fr 36px; align-items: center; gap: 10px; }
+.sp-name { font-size: 12px; color: var(--muted); font-weight: 600; }
+.sp-bar { height: 8px; background: var(--panel-2); border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+.sp-bar > div { height: 100%; background: linear-gradient(90deg, #fbbf24, #f97316); border-radius: 5px; }
+.sp-count { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--text); }
+@media (max-width: 1080px) { .shred-cols { grid-template-columns: 1fr; } }
