@@ -46,10 +46,14 @@ function liveFlowHtml(d) {
     const top = y(Math.max(cd.o, cd.c)), bot = y(Math.min(cd.o, cd.c));
     return `<g class="${cd.last ? "candle-new" : ""}"><line x1="${x(i)}" x2="${x(i)}" y1="${y(cd.hi)}" y2="${y(cd.lo)}" stroke="${col}" stroke-width="1"/><rect x="${x(i) - bw / 2}" y="${top}" width="${bw}" height="${Math.max(2, bot - top)}" fill="${col}" rx="1"/></g>`;
   }).join("");
-  const legend = d.chain === "SOL" ? "buy flow rising" : d.chain === "EVM" ? "gas easing / activity up" : "pressure easing";
+  const legend = d.chain === "SOL" ? "buy flow rising" : d.chain === "EVM" ? "gas easing / activity up" : d.chain === "PM" ? "odds / probability rising" : "pressure easing";
+  const titleText = d.chain === "PM" ? "🫀 Live Probability & Volume Pulse" : "🫀 Live pulse";
+  const subtitleText = d.chain === "PM" ? "— odds & volume split, refreshed every 15s" : "— buy vs sell pressure, refreshed every 15s";
+  const aText = d.chain === "PM" ? `${tk.aLabel.split(" ")[0].toUpperCase()} ${aPct}%` : `BUY ${aPct}%`;
+  const bText = d.chain === "PM" ? `${tk.bLabel.split(" ")[0].toUpperCase()} ${bPct}%` : `SELL ${bPct}%`;
   return `
   <div class="live-flow">
-    <div class="lf-title">🫀 Live pulse <span class="muted">— buy vs sell pressure, refreshed every 15s</span></div>
+    <div class="lf-title">${titleText} <span class="muted">${subtitleText}</span></div>
     <div class="lf-body">
       <div class="cans">
         <div class="can-wrap buy-side">
@@ -62,9 +66,9 @@ function liveFlowHtml(d) {
         </div>
       </div>
       <div class="lf-mid">
-        <span class="pos">BUY ${aPct}%</span>
+        <span class="pos">${aText}</span>
         <div class="split-bar"><div class="split-buy" style="width:${aPct}%"></div><div class="split-sell" style="width:${bPct}%"></div></div>
-        <span class="neg">SELL ${bPct}%</span>
+        <span class="neg">${bText}</span>
         <span class="muted lf-hint">ratio ${tk.a && tk.b ? (tk.a / tk.b).toFixed(2) : "—"} : 1 · green = ${legend}</span>
       </div>
       <div class="candles">
@@ -128,11 +132,12 @@ function flowMapHtml(d, th) {
     `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M365,52 C420,74 480,74 525,52"/></circle>`
   ).join("");
   const pL = "#34d399";
+  const chainSub = d.chain === "PM" ? "Polymarket CLOB" : d.chain === "EQ" ? "SEC EDGAR & Options Flow" : `${d.chain} · animated live feed`;
   return `
   <div class="flow-map">
     <div class="fm-head">
       <h3>🔀 Where the money is flowing</h3>
-      <span class="muted" style="font-size:10px">${d.chain} · animated live feed</span>
+      <span class="muted" style="font-size:10px">${chainSub}</span>
     </div>
     <svg viewBox="0 0 640 115" style="width:100%;height:auto">
       <defs>
@@ -160,16 +165,19 @@ function render() {
   const box = $("shredsPanel");
   if (!box) return;
   const sym = currentSym || store.symbol;
+  const isPM = sym?.startsWith("PM:") || store.cat === "polymarket";
+  const defTheme = isPM ? THEME.PM : (store.cat === "stock" || store.cat === "etf" || store.cat === "index" ? THEME.EQ : THEME.SOL);
   if (!data) {
-    box.innerHTML = head("Scanning raw chain data…");
+    box.innerHTML = head("Scanning raw telemetry & odds…", false, defTheme);
     return;
   }
   if (data.error) {
-    box.innerHTML = head(`Feed unavailable: ${data.error}`, true);
-    wire();
+    box.innerHTML = head(`Feed unavailable: ${data.error}`, true, defTheme);
+    const rb = $("shredsRefresh");
+    if (rb) rb.onclick = () => loadShreds(currentSym);
     return;
   }
-  const th = THEME[data.chain] || THEME.SOL;
+  const th = THEME[data.chain] || (isPM ? THEME.PM : THEME.SOL);
   const chainName = data.chainName || th.name;
   const g = data.gauge || { value: 50, label: "—", low: "", high: "", kind: "bias" };
   const gCol = gaugeColor(g.kind, g.value);
@@ -186,7 +194,7 @@ function render() {
     ${flowMapHtml(data, th)}
 
     <div class="gauge-card">
-      <div class="gauge-head"><h3 style="color:${gCol}">${g.label.toUpperCase()}</h3><span class="muted" style="font-size:11px">${g.kind === "bias" ? "flow direction" : g.kind === "gas" ? "gas window" : "network pressure"}</span></div>
+      <div class="gauge-head"><h3 style="color:${gCol}">${g.label.toUpperCase()}</h3><span class="muted" style="font-size:11px">${g.kind === "bias" ? (data.chain === "PM" ? "odds & probability distribution" : "flow direction") : g.kind === "gas" ? "gas window" : "network pressure"}</span></div>
       <svg viewBox="0 0 640 46" style="width:100%;height:auto">
         <defs><linearGradient id="ggrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f87171"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
         <line x1="20" y1="22" x2="620" y2="22" stroke="url(#ggrad)" stroke-width="12" stroke-linecap="round" opacity=".3"/>
@@ -199,15 +207,16 @@ function render() {
 
     <div class="shred-cols">
       <div>
-        <h3>🐋 Top on-chain flows <span class="muted" style="font-size:10.5px;font-weight:500">live-priced</span></h3>
+        <h3>${data.chain === "PM" ? "🔮 Real-Time Orderbook & Probability Flows" : "🐋 Top on-chain flows"} <span class="muted" style="font-size:10.5px;font-weight:500">live-priced</span></h3>
         ${data.flows?.length ? `<div class="flow-list">
           ${data.flows.map((w) => {
             const tier = w.usd >= 50000 ? "whale" : w.usd >= 10000 ? "big" : "std";
-            return `<a class="flow-row ${tier}" href="${w.link}" target="_blank" rel="noopener">
-              <span class="flow-token ${w.sym === "USDC" ? "usdc" : w.sym === "USDT" ? "usdt" : w.sym?.includes("BTC") ? "btc" : w.sym?.includes("ETH") ? "eth" : w.sym?.includes("SOL") ? "sol" : "sol"}">${w.sym}</span>
+            const tokCls = w.sym === "USDC" ? "usdc" : w.sym === "USDT" ? "usdt" : w.sym?.includes("BTC") ? "btc" : w.sym?.includes("ETH") ? "eth" : w.sym === "YES" ? "yes" : w.sym === "NO" ? "no" : data.chain === "PM" ? "pm" : "sol";
+            return `<a class="flow-row ${tier}" href="${w.link || '#'}" target="_blank" rel="noopener">
+              <span class="flow-token ${tokCls}">${w.sym}</span>
               <span class="flow-amts"><b>${w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 })}</b><i>${usd(w.usd)}</i></span>
               <span class="flow-addr muted">${short(w.from)} <span class="flow-arrow">→</span> ${short(w.to)}</span>
-              <span class="flow-link">explorer ↗</span>
+              <span class="flow-link">${data.chain === "PM" ? "market ↗" : "explorer ↗"}</span>
             </a>`;
           }).join("")}
         </div>` : `<div class="empty">No whale-sized prints in the scanned window.</div>`}
@@ -222,7 +231,7 @@ function render() {
               <span class="sp-count">${p.count}</span>
             </div>`).join("")}
         </div>
-        ${data.chain === "SOL" && data.providers?.length ? `<h3 style="margin-top:14px">🔌 Providers</h3><div style="display:flex;gap:6px;flex-wrap:wrap">${data.providers.map((p) => `<span class="prov-chip ${p.ok ? "ok" : "bad"}">${p.ok ? "●" : "○"} ${p.host} ${p.ms}ms</span>`).join("")}</div>` : ""}
+        ${data.providers?.length ? `<h3 style="margin-top:14px">🔌 Providers & Feeds</h3><div style="display:flex;gap:6px;flex-wrap:wrap">${data.providers.map((p) => `<span class="prov-chip ${p.ok ? "ok" : "bad"}">${p.ok ? "●" : "○"} ${p.host} ${p.ms}ms</span>`).join("")}</div>` : ""}
       </div>
     </div>
 
@@ -235,18 +244,18 @@ function render() {
     </div>` : ""}
 
     ${data.cards?.length ? `<div class="noob-cards">
-      <h3>🧭 Beginner mode — what this means for you</h3>
+      <h3>🧭 ${data.chain === "PM" ? "Prediction Desk & Signals" : "Beginner mode — what this means for you"}</h3>
       <div class="nc-grid">
         ${data.cards.map((c) => `
           <div class="nc-card ${c.cls}">
             <div class="nc-head"><span class="nc-icon">${c.icon}</span><b>${c.title}</b></div>
             <p>${c.text}</p>
-            ${c.trade && c.side ? `<button class="btn small primary nc-exec" data-sym="${c.trade}" data-side="${c.side}" data-src="Shreds ${chainName}: ${c.title}">⚡ ${c.side === "buy" ? "Buy" : "Sell"} ${c.trade.split("-")[0]} at market</button>` : ""}
+            ${c.trade && c.side ? `<button class="btn small primary nc-exec" data-sym="${c.trade}" data-side="${c.side}" data-src="Shreds ${chainName}: ${c.title}">⚡ Trade ${data.chain === "PM" ? (c.side === "buy" ? "YES / Long" : "NO / Short") : `${c.side === "buy" ? "Buy" : "Sell"} ${c.trade.split("-")[0]}`} at market</button>` : ""}
           </div>`).join("")}
       </div>
     </div>` : ""}
 
-    <p class="hint">${data.chain === "BTC" ? "Data: mempool.space (open-source) — real Bitcoin mempool, pre-confirmation." : data.chain === "EVM" ? "Data: public RPC block flow — latest block decoded live." : "Data: public Solana RPCs — multi-slot block telemetry."} Free & keyless. Educational research, not advice.</p>`;
+    <p class="hint">${data.chain === "BTC" ? "Data: mempool.space (open-source) — real Bitcoin mempool, pre-confirmation." : data.chain === "EVM" ? "Data: public RPC block flow — latest block decoded live." : data.chain === "EQ" ? "Data: SEC EDGAR insider Form 4s & options flow — decoded live." : data.chain === "PM" ? "Data: Polymarket Gamma API & CLOB Orderbooks — real-time probability pricing, 24h volume & odds decoded live." : "Data: public Solana RPCs — multi-slot block telemetry."} Free & keyless. Educational research, not advice.</p>`;
 
   box.querySelectorAll(".nc-exec").forEach((b) => {
     b.onclick = () => import("./portfolio.js").then(({ openTradeModal }) =>
@@ -261,8 +270,9 @@ function render() {
 function head(sub, retry, th) {
   const color = th?.color || "#fbbf24";
   const isSol = data?.chain === "SOL";
+  const chainTitle = th?.name || (store.cat === "polymarket" ? "Polymarket" : "Crypto");
   return `<div class="chart-head">
-    <h2 style="color:${color}">⚡ ${th?.name || "Crypto"} Shreds — ${sub}</h2>
+    <h2 style="color:${color}">⚡ ${chainTitle} Shreds — ${sub}</h2>
     <div class="legend">
       ${isSol ? `<button class="btn small" id="shredsConnect" title="Connect external RPC/shred providers">＋ Provider</button>` : ""}
       <button class="btn small" id="shredsRefresh">${retry ? "↻ Retry" : "↻"}</button>
@@ -326,19 +336,20 @@ async function openProviderModal() {
 export function initShreds() {
   const box = $("shredsPanel");
   if (!box) return;
+  const isSupported = (sym) => SUPPORTED.has(sym) || sym?.startsWith("PM:") || store.cat === "polymarket";
   const update = () => {
     const sym = store.symbol || "";
-    const show = SUPPORTED.has(sym);
+    const show = isSupported(sym);
     box.style.display = show ? "block" : "none";
     if (show) {
       loadShreds(sym);
-      if (!timer) timer = setInterval(() => { if (box.style.display !== "none" && SUPPORTED.has(currentSym)) loadShreds(currentSym); }, 15000);
+      if (!timer) timer = setInterval(() => { if (box.style.display !== "none" && isSupported(currentSym)) loadShreds(currentSym); }, 15000);
     }
   };
   const badge = document.getElementById("shredsBadge");
   const updateBadge = () => {
     if (!badge) return;
-    badge.style.display = store.cat === "crypto" && !SUPPORTED.has(store.symbol) ? "inline-flex" : "none";
+    badge.style.display = store.cat === "crypto" && !isSupported(store.symbol) ? "inline-flex" : "none";
   };
   if (badge) badge.onclick = () => {
     location.hash = "#sym=SOL-USD";

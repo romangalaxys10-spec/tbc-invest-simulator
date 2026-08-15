@@ -178,7 +178,8 @@
 |---|---|
 | Dedicated `🔮 Polymarket` Instruments Category with 24/7 Binary Odds | `index.html` `data-cat="polymarket"` · `instruments.js` `CATALOG` · `CATEGORY_LABELS` |
 | Real-time Gamma API & CLOB Orderbook Integration (Odds, Liquidity, 24h Vol) | `api/history.js` `handlePolymarket` · `api/shreds.js` `polymarketDecoder` |
-| Polymarket Predictive Intelligence & Shreds (Odds consensus, whale flows, settlement resolution) | `api/shreds.js` `polymarketDecoder` · `shreds.js` `THEME.PM` |
+| Polymarket Predictive Shreds & Orderbook Depth (CLOB depth, bid/ask walls, implied payout multiples, whale bets) | `api/shreds.js` `polymarketDecoder` · `shreds.js` `THEME.PM` · `.flow-token.yes/.no/.pm` |
+| Polymarket Real-Time Prediction Radar Scanner (Probability Surges, Consensus, Asymmetric Value, Dead Heat volatility) | `api/scan.js` `pushPM` · `alerts.js` |
 | Polymarket Desk Signals & Technical Probability Analysis | `api/analysis.js` `polymarketAnalysis` (Prediction Desk, Market Maker Desk, Contrarian Desk) |
 | Binary Contract Trading & Simulation (Trade YES/NO contracts, attach SL/TP, Paper portfolio tracking) | `portfolio.js` `openTradeModal` · `app.js` `renderSelected` |
 

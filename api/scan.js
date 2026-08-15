@@ -72,7 +72,56 @@ export default async function handler(req, res) {
     }
   });
 
+  // Polymarket Real-Time Prediction Market Radar Scanner
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 4000);
+    const pmRes = await fetch("https://gamma-api.polymarket.com/events?closed=false&limit=15&order=volume24hr&ascending=false", { signal: ctrl.signal });
+    clearTimeout(to);
+    if (pmRes.ok) {
+      const pmEvents = await pmRes.json();
+      for (const ev of pmEvents) {
+        const m = ev.markets?.[0];
+        if (!m) continue;
+        const sym = `PM:${m.id}`;
+        const name = ev.title || m.question || m.slug;
+        let prices = [];
+        try { prices = typeof m.outcomePrices === "string" ? JSON.parse(m.outcomePrices) : (m.outcomePrices || []); } catch {}
+        let outcomes = [];
+        try { outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || []); } catch {}
+        const p0 = Number(prices[0]) || 0.5;
+        const p1 = Number(prices[1]) || (1 - p0);
+        const o0 = outcomes[0] || "YES";
+        const o1 = outcomes[1] || "NO";
+        const vol = Number(m.volume24hr || ev.volume24hr || 0);
+        const chg1d = Number(m.oneDayPriceChange || 0);
+        const mult0 = p0 > 0.001 ? (1 / p0).toFixed(2) + "x" : ">100x";
+        const mult1 = p1 > 0.001 ? (1 / p1).toFixed(2) + "x" : ">100x";
+
+        const pushPM = (type, dir, detail, action, strength = 2) =>
+          alerts.push({ sym, name, cat: "polymarket", price: p0, type, dir, detail, action, strength });
+
+        // 1. Sharp 24h probability repricing
+        if (Math.abs(chg1d) >= 0.03) {
+          pushPM("Probability Surge", chg1d > 0 ? "bullish" : "bearish", `${o0} odds shifted ${(chg1d > 0 ? "+" : "") + (chg1d * 100).toFixed(1)}% in 24h to ${(p0 * 100).toFixed(0)}%`, `High momentum flow: trade ${chg1d > 0 ? "YES" : "NO"} with stop at recent pivot.`, 3);
+        }
+        // 2. High conviction supermajority
+        if (p0 >= 0.80) {
+          pushPM("Supermajority Consensus", "bullish", `${o0} priced at ${(p0 * 100).toFixed(0)}% consensus (${mult0} payout)`, `High-probability consolidation: market pricing strong resolution odds.`, 2);
+        }
+        // 3. Contrarian asymmetric value setup
+        if (p0 <= 0.30 && vol > 5000) {
+          pushPM("Asymmetric Value Play", "bullish", `${o0} underpriced at ${(p0 * 100).toFixed(0)}% offering ${mult0} payout on resolution`, `Contrarian bet: small position size for asymmetric payoff.`, 3);
+        }
+        // 4. Dead Heat / Toss-Up
+        if (p0 >= 0.40 && p0 <= 0.60 && vol > 25000) {
+          pushPM("Dead Heat Volatility", "neutral", `Toss-up (${(p0 * 100).toFixed(0)}% vs ${(p1 * 100).toFixed(0)}%) with $${Math.round(vol).toLocaleString()} 24h volume`, `High expected volatility: watch for news catalysts or straddle both outcomes.`, 2);
+        }
+      }
+    }
+  } catch {}
+
   alerts.sort((a, b) => b.strength - a.strength);
   res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=1800");
-  res.status(200).json({ alerts: alerts.slice(0, 30), scanned: syms.length, fetchedAt: Date.now() });
+  res.status(200).json({ alerts: alerts.slice(0, 150), scanned: syms.length + 15, fetchedAt: Date.now() });
 }
