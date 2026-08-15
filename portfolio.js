@@ -440,7 +440,17 @@ async function fetchQuote(sym) {
   const r = await fetch(`/api/history?symbol=${encodeURIComponent(sym)}&period1=${Math.floor(Date.now() / 1000) - 10 * 86400}&period2=${Math.floor(Date.now() / 1000) + 86400}`);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-  return { symbol: j.symbol, name: j.name, currency: j.currency, price: j.price, previousClose: j.previousClose, cat: CATALOG.find((i) => i.sym === j.symbol)?.cat || "stock" };
+  return {
+    symbol: j.symbol,
+    name: j.name,
+    currency: j.currency,
+    price: j.price,
+    previousClose: j.previousClose,
+    cat: CATALOG.find((i) => i.sym === j.symbol)?.cat || (j.symbol.startsWith("PM:") ? "polymarket" : "stock"),
+    outcomes: j.outcomes || null,
+    prices: j.prices || null,
+    type: j.type || null,
+  };
 }
 
 async function getQuote(sym) {
@@ -504,7 +514,7 @@ function attachBracket(sym, slPx, tpPx, long, entryPx) {
 }
 
 export async function openTradeModal(sym, opts = {}) {
-  // opts: { side, orderType, trigger, leverage, source, stopHint, targetHint }
+  // opts: { side, orderType, trigger, leverage, source, stopHint, targetHint, outcome, pmAction }
   const overlay = $("tradeModal");
   const body = $("tradeModalBody");
   overlay.style.display = "grid";
@@ -532,6 +542,296 @@ export async function openTradeModal(sym, opts = {}) {
     $("fxClose").onclick = closeTradeModal;
     return;
   }
+
+  const isPM = sym.startsWith("PM:") || q.cat === "polymarket";
+  const syncRow = () => cloudToken
+    ? `<div class="trade-sync ok">☁ Orders save to your token <code>••••${cloudToken.slice(-4)}</code></div>`
+    : `<div class="trade-sync">🔐 No token linked — orders stay on this device only. <button type="button" class="btn small" id="modalGenToken">Generate my token</button></div>`;
+
+  if (isPM) {
+    // ================= DEDICATED POLYMARKET PREDICTION CONTRACT TICKET =================
+    const p0 = Number(q.prices?.[0]) != null && !isNaN(Number(q.prices?.[0])) ? Number(q.prices[0]) : Number(q.price) || 0.5;
+    const p1 = Number(q.prices?.[1]) != null && !isNaN(Number(q.prices?.[1])) ? Number(q.prices[1]) : (1 - p0);
+    const o0 = q.outcomes?.[0] || "YES";
+    const o1 = q.outcomes?.[1] || "NO";
+
+    const S_PM = {
+      outcome: opts.outcome || (opts.side === "sell" ? o1 : o0),
+      action: opts.pmAction || (opts.side === "sell" ? "sell" : "buy"),
+      type: ["market", "limit"].includes(opts.orderType) ? opts.orderType : "market",
+      limitPrice: opts.trigger != null ? Math.min(0.99, Math.max(0.01, Number(opts.trigger))) : null,
+      source: opts.source || "",
+      stopHint: opts.stopHint ?? null,
+      targetHint: opts.targetHint ?? null,
+    };
+
+    const heldUnits = pf.positions.find((p) => p.sym === sym)?.units ?? 0;
+    const initialPrice = S_PM.outcome === o0 ? p0 : p1;
+    if (S_PM.limitPrice == null) S_PM.limitPrice = initialPrice;
+
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+        <h3 style="margin:0">🔮 Prediction Ticket</h3>
+        <span class="pm-ticket-badge">POLYMARKET CLOB</span>
+      </div>
+      <div class="sub" style="margin-bottom:12px;line-height:1.4">${q.name}${heldUnits ? ` · <span class="chip neutral" style="font-size:10.5px">Holding ${Math.abs(heldUnits).toFixed(2)} shares</span>` : ""}</div>
+      ${S_PM.source ? `<div class="signal-context">⚡ Executing: <b>${S_PM.source}</b></div>` : ""}
+
+      <div class="pm-action-seg" id="pmActionSeg">
+        <button data-act="buy" class="${S_PM.action === "buy" ? "active" : ""}">Buy Shares (Enter Position)</button>
+        <button data-act="sell" class="${S_PM.action === "sell" ? "active" : ""}">Sell Shares (Close / Short)</button>
+      </div>
+
+      <label style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:6px">Select Contract Outcome</label>
+      <div class="pm-outcomes-grid" id="pmOutcomesGrid">
+        <div class="pm-outcome-card yes ${S_PM.outcome === o0 ? "active" : ""}" data-out="${o0}" data-p="${p0}">
+          <span class="pm-outcome-name" style="color:#34d399">${o0}</span>
+          <span class="pm-outcome-price">$${p0.toFixed(2)} <span style="font-size:11px;color:var(--muted)">(${(p0 * 100).toFixed(0)}%)</span></span>
+          <span class="pm-outcome-mult">${p0 > 0.005 ? (1 / p0).toFixed(2) + "× payout" : ">100×"}</span>
+        </div>
+        <div class="pm-outcome-card no ${S_PM.outcome === o1 ? "active" : ""}" data-out="${o1}" data-p="${p1}">
+          <span class="pm-outcome-name" style="color:#f87171">${o1}</span>
+          <span class="pm-outcome-price">$${p1.toFixed(2)} <span style="font-size:11px;color:var(--muted)">(${(p1 * 100).toFixed(0)}%)</span></span>
+          <span class="pm-outcome-mult">${p1 > 0.005 ? (1 / p1).toFixed(2) + "× payout" : ">100×"}</span>
+        </div>
+      </div>
+
+      <div class="ticket-grid" style="margin-bottom:12px">
+        <div class="seg" id="pmTypeSeg" style="grid-column:1/-1">
+          <button data-v="market" class="${S_PM.type === "market" ? "active" : ""}">Market Order</button>
+          <button data-v="limit" class="${S_PM.type === "limit" ? "active" : ""}">Limit Order (Odds)</button>
+        </div>
+        <label id="pmAmountWrap">Investment Amount (USD)
+          <input type="number" id="pmAmount" value="500" min="5" step="any" />
+          <div class="pm-presets">
+            <span>quick:</span>
+            <button type="button" class="btn small" data-amt="100">$100</button>
+            <button type="button" class="btn small" data-amt="500">$500</button>
+            <button type="button" class="btn small" data-amt="1000">$1,000</button>
+          </div>
+        </label>
+        <label id="pmLimitWrap" style="display:${S_PM.type === "limit" ? "flex" : "none"}">Limit Odds / Price ($0.01 – $0.99)
+          <input type="number" id="pmLimitPrice" value="${S_PM.limitPrice.toFixed(2)}" min="0.01" max="0.99" step="0.01" />
+        </label>
+      </div>
+
+      <div class="pm-metrics-row" id="pmMetricsRow">
+        <div class="pm-metric-box">
+          <span class="pm-metric-k">Contracts</span>
+          <span class="pm-metric-v" id="pmContractsVal">—</span>
+        </div>
+        <div class="pm-metric-box">
+          <span class="pm-metric-k">Max Payout ($1.00)</span>
+          <span class="pm-metric-v" id="pmPayoutVal" style="color:#34d399">—</span>
+        </div>
+        <div class="pm-metric-box">
+          <span class="pm-metric-k">Return on Win</span>
+          <span class="pm-metric-v" id="pmRoiVal" style="color:var(--accent-2)">—</span>
+        </div>
+      </div>
+
+      <div class="bracket-toggles" style="margin-top:10px">
+        <label class="bracket-toggle">
+          <input type="checkbox" id="toggleSL" ${S_PM.stopHint ? "checked" : ""} />
+          <span>🛑 Exit Stop (Odds Drop)</span>
+        </label>
+        <label class="bracket-toggle">
+          <input type="checkbox" id="toggleTP" ${S_PM.targetHint ? "checked" : ""} />
+          <span>🎯 Take-Profit (Odds Gain)</span>
+        </label>
+      </div>
+      <div class="bracket-row" id="bracketRow" style="display:${S_PM.stopHint || S_PM.targetHint ? "grid" : "none"}">
+        <label id="wrapSL" style="display:${S_PM.stopHint ? "flex" : "none"}">🛑 Stop-Loss Odds ($0.01 – $0.99)
+          <input type="number" id="tradeSL" placeholder="0.20" value="${S_PM.stopHint ? S_PM.stopHint.toFixed(2) : ""}" min="0.01" max="0.99" step="0.01" />
+        </label>
+        <label id="wrapTP" style="display:${S_PM.targetHint ? "flex" : "none"}">🎯 Take-Profit Odds ($0.01 – $0.99)
+          <input type="number" id="tradeTP" placeholder="0.90" value="${S_PM.targetHint ? S_PM.targetHint.toFixed(2) : ""}" min="0.01" max="0.99" step="0.01" />
+        </label>
+      </div>
+      <div class="bracket-presets" id="bracketPresets" style="display:${S_PM.stopHint || S_PM.targetHint ? "flex" : "none"}">
+        <span class="muted" style="font-size:10.5px">quick odds:</span>
+        <button type="button" class="btn small" data-brk="10">±10¢</button>
+        <button type="button" class="btn small" data-brk="20">±20¢</button>
+        <button type="button" class="btn small danger" data-brk="clear">clear</button>
+      </div>
+
+      <div class="summary-box" id="tradeSummary"></div>
+      <div id="tradeSyncRow">${syncRow()}</div>
+      <div class="modal-actions">
+        <button class="btn" id="tradeCancel">Cancel</button>
+        <button class="btn primary" id="tradeConfirm">${S_PM.type === "market" ? `Execute ${S_PM.action === "buy" ? "Buy" : "Sell"} ${S_PM.outcome}` : "Place Limit Order"}</button>
+      </div>`;
+
+    const pmActionSeg = $("pmActionSeg"), pmOutcomesGrid = $("pmOutcomesGrid"), pmTypeSeg = $("pmTypeSeg");
+    const pmAmountEl = $("pmAmount"), pmLimitWrap = $("pmLimitWrap"), pmLimitEl = $("pmLimitPrice");
+    const toggleSL = $("toggleSL"), toggleTP = $("toggleTP"), wrapSL = $("wrapSL"), wrapTP = $("wrapTP");
+    const bracketRow = $("bracketRow"), bracketPresets = $("bracketPresets"), slEl = $("tradeSL"), tpEl = $("tradeTP");
+
+    pmActionSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      S_PM.action = b.dataset.act;
+      pmActionSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+      updatePM();
+    });
+
+    pmOutcomesGrid.addEventListener("click", (e) => {
+      const c = e.target.closest(".pm-outcome-card"); if (!c) return;
+      S_PM.outcome = c.dataset.out;
+      pmOutcomesGrid.querySelectorAll(".pm-outcome-card").forEach((x) => x.classList.toggle("active", x === c));
+      const curPx = S_PM.outcome === o0 ? p0 : p1;
+      if (pmLimitEl) pmLimitEl.value = curPx.toFixed(2);
+      updatePM();
+    });
+
+    pmTypeSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      S_PM.type = b.dataset.v;
+      pmTypeSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+      pmLimitWrap.style.display = S_PM.type === "limit" ? "flex" : "none";
+      updatePM();
+    });
+
+    body.querySelectorAll("[data-amt]").forEach((b) => {
+      b.onclick = () => { pmAmountEl.value = b.dataset.amt; updatePM(); };
+    });
+
+    [toggleSL, toggleTP].forEach((t) => t.addEventListener("change", () => {
+      const curPx = S_PM.outcome === o0 ? p0 : p1;
+      if (toggleSL.checked && !slEl.value) {
+        slEl.value = Math.max(0.01, curPx - 0.15).toFixed(2);
+      }
+      if (toggleTP.checked && !tpEl.value) {
+        tpEl.value = Math.min(0.99, curPx + 0.25).toFixed(2);
+      }
+      updatePM();
+    }));
+
+    body.querySelectorAll("[data-brk]").forEach((b) => {
+      b.onclick = () => {
+        const curPx = S_PM.outcome === o0 ? p0 : p1;
+        if (b.dataset.brk === "clear") {
+          slEl.value = ""; tpEl.value = "";
+          toggleSL.checked = false; toggleTP.checked = false;
+        } else {
+          toggleSL.checked = true; toggleTP.checked = true;
+          const delta = Number(b.dataset.brk) / 100;
+          slEl.value = Math.max(0.01, curPx - delta).toFixed(2);
+          tpEl.value = Math.min(0.99, curPx + delta * 1.5).toFixed(2);
+        }
+        updatePM();
+      };
+    });
+
+    [pmAmountEl, pmLimitEl, slEl, tpEl].forEach((el) => el?.addEventListener("input", updatePM));
+
+    function updatePM() {
+      const useSL = toggleSL.checked, useTP = toggleTP.checked;
+      wrapSL.style.display = useSL ? "flex" : "none";
+      wrapTP.style.display = useTP ? "flex" : "none";
+      bracketRow.style.display = (useSL || useTP) ? "grid" : "none";
+      bracketRow.style.gridTemplateColumns = (useSL && useTP) ? "1fr 1fr" : "1fr";
+      bracketPresets.style.display = (useSL || useTP) ? "flex" : "none";
+
+      const curOdds = S_PM.outcome === o0 ? p0 : p1;
+      const effPrice = S_PM.type === "limit" ? (Number(pmLimitEl.value) || curOdds) : curOdds;
+      const amt = Math.max(0, Number(pmAmountEl.value) || 0);
+      const shares = effPrice > 0 ? amt / effPrice : 0;
+      const maxPayout = shares * 1.0;
+      const profitOnWin = maxPayout - amt;
+      const roiPct = amt > 0 ? (profitOnWin / amt) * 100 : 0;
+
+      $("pmContractsVal").textContent = `${shares.toFixed(2)} shares`;
+      $("pmPayoutVal").textContent = money(maxPayout);
+      $("pmRoiVal").textContent = `+${roiPct.toFixed(0)}% (+$${profitOnWin.toFixed(2)})`;
+
+      S_PM.sl = useSL ? (Number(slEl.value) || null) : null;
+      S_PM.tp = useTP ? (Number(tpEl.value) || null) : null;
+
+      let err = "";
+      if (S_PM.action === "buy" && amt > pf.cash) err = `Insufficient cash — available ${money(pf.cash)}`;
+      if (effPrice <= 0 || effPrice >= 1) err = `Contract odds must be between $0.01 and $0.99`;
+      if (S_PM.sl && (S_PM.sl >= effPrice || S_PM.sl <= 0)) err = `Stop-loss odds must be below entry ($${effPrice.toFixed(2)})`;
+      if (S_PM.tp && (S_PM.tp <= effPrice || S_PM.tp >= 1.0)) err = `Take-profit odds must be above entry ($${effPrice.toFixed(2)})`;
+
+      const summary = $("tradeSummary");
+      summary.innerHTML = `
+        ${err ? `<span class="neg">${err}</span><br/>` : ""}
+        🎯 Contract: <b>${S_PM.outcome}</b> @ <b>$${effPrice.toFixed(2)}</b> (${(effPrice * 100).toFixed(0)}% probability)<br/>
+        💵 Cash required: <b>${money(amt)}</b> · Cash after: <b>${money(pf.cash - (S_PM.action === "buy" ? amt : 0))}</b><br/>
+        🏆 Max settlement return: <b>${money(maxPayout)}</b> if resolves ${S_PM.outcome} ($1.00 payout/share)<br/>
+        ${S_PM.type === "limit" ? `<span class="muted" style="font-size:11px">Limit order sits on the CLOB until odds hit $${effPrice.toFixed(2)}.</span>` : `<span class="muted" style="font-size:11px">Instant simulated market execution against live Polymarket liquidity.</span>`}
+      `;
+
+      $("tradeConfirm").disabled = amt <= 0 || !!err;
+      $("tradeConfirm").textContent = S_PM.type === "market"
+        ? `Execute ${S_PM.action === "buy" ? "Buy" : "Sell"} ${S_PM.outcome}`
+        : `Place Limit Order ($${effPrice.toFixed(2)})`;
+    }
+    updatePM();
+
+    $("modalGenToken")?.addEventListener("click", async () => {
+      $("modalGenToken").disabled = true;
+      $("modalGenToken").textContent = "Generating…";
+      await generateToken();
+      $("tradeSyncRow").innerHTML = syncRow();
+    });
+
+    $("tradeCancel").onclick = closeTradeModal;
+    $("tradeConfirm").onclick = async () => {
+      const amt = Number(pmAmountEl.value) || 0;
+      if (amt <= 0) return;
+      const curOdds = S_PM.outcome === o0 ? p0 : p1;
+      const effPrice = S_PM.type === "limit" ? (Number(pmLimitEl.value) || curOdds) : curOdds;
+      const symSide = S_PM.outcome === o0 ? "buy" : "sell"; // YES maps to long, NO maps to short/sell
+      const outcomeLabel = `${q.name} [${S_PM.outcome}]`;
+
+      if (S_PM.type === "market") {
+        if (S_PM.action === "buy" && amt > pf.cash) return;
+        executeAtMarket(sym, outcomeLabel, "USD", amt, effPrice, symSide, 1, S_PM.source || `Polymarket ${S_PM.outcome}`);
+        attachBracket(sym, S_PM.sl, S_PM.tp, symSide === "buy", effPrice);
+        const units = amt / effPrice;
+        notifyTelegram(
+          `🔮 <b>Polymarket Prediction Trade Executed</b>\n\n` +
+          `<b>Contract:</b> ${q.name}\n` +
+          `<b>Outcome:</b> ${S_PM.outcome === o0 ? "🟢 YES" : "🔴 NO"} (${S_PM.outcome})\n` +
+          `<b>Fill Odds:</b> $${effPrice.toFixed(2)} (${(effPrice * 100).toFixed(0)}%)\n` +
+          `<b>Shares:</b> ${units.toFixed(2)}\n` +
+          `<b>Investment:</b> ${money(amt)}\n` +
+          `<b>Max Payout:</b> ${money(units * 1.0)} (at $1.00 resolution)\n` +
+          (S_PM.sl ? `<b>Exit Stop:</b> $${S_PM.sl.toFixed(2)}\n` : "") +
+          (S_PM.tp ? `<b>Take Profit:</b> $${S_PM.tp.toFixed(2)}\n` : "") +
+          `<b>Cash Remaining:</b> ${money(pf.cash)}`,
+          "trades"
+        );
+        showFill(body, overlay, {
+          sym, side: symSide, usd: amt, priceUSD: effPrice, sl: S_PM.sl, tp: S_PM.tp,
+          units, lev: 1, source: `Polymarket ${S_PM.outcome}`,
+        });
+      } else {
+        pf.orders = pf.orders || [];
+        pf.orders.push({
+          id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+          sym, name: outcomeLabel, ccy: "USD", side: symSide, type: "limit",
+          usd: amt, trigger: effPrice, lev: 1, sl: S_PM.sl, tp: S_PM.tp,
+          source: `Polymarket ${S_PM.outcome}`, created: Date.now(),
+        });
+        notifyTelegram(
+          `⏳ <b>Polymarket Limit Order Placed</b>\n\n` +
+          `<b>Contract:</b> ${q.name}\n` +
+          `<b>Outcome:</b> ${S_PM.outcome}\n` +
+          `<b>Limit Odds:</b> $${effPrice.toFixed(2)}\n` +
+          `<b>Amount:</b> ${money(amt)}`,
+          "orders"
+        );
+        save();
+        renderPortfolio();
+        showOrderPlaced(body, overlay, { sym, side: symSide, trigger: effPrice, lev: 1, type: "limit" });
+      }
+    };
+    return;
+  }
+
+  // ================= STANDARD STOCKS / ETFS / FOREX / CRYPTO TICKET =================
   const S = {
     side: opts.side === "sell" ? "sell" : "buy",
     type: ["market", "limit", "stop", "auction"].includes(opts.orderType) ? opts.orderType : "market",
@@ -542,9 +842,6 @@ export async function openTradeModal(sym, opts = {}) {
     targetHint: opts.targetHint ?? null,
   };
   const heldUnits = pf.positions.find((p) => p.sym === sym)?.units ?? 0;
-  const syncRow = () => cloudToken
-    ? `<div class="trade-sync ok">☁ Orders save to your token <code>••••${cloudToken.slice(-4)}</code></div>`
-    : `<div class="trade-sync">🔐 No token linked — orders stay on this device only. <button type="button" class="btn small" id="modalGenToken">Generate my token</button></div>`;
 
   const entryPx = priceUSD;
   const slHint = (S.side === "buy" ? entryPx * (1 - 1 / S.lev * 0.9) : entryPx * (1 + 1 / S.lev * 0.9)).toFixed(2);
@@ -1164,11 +1461,15 @@ export async function renderPortfolio() {
       ${pf.positions.map((p) => {
         const v = ok.find((x) => x.id === p.id);
         if (!v) return `<tr><td>${p.sym}</td><td colspan="7" class="muted">price unavailable</td></tr>`;
+        const isPM = p.sym.startsWith("PM:") || p.cat === "polymarket";
+        const unitsDisplay = isPM
+          ? `${Math.abs(v.units).toFixed(2)} shares ${v.short ? '<span class="chip bad">NO</span>' : '<span class="chip good">YES</span>'}`
+          : `${v.units.toFixed(4)}${v.lev > 1 || v.short ? ` <span class="chip ${v.short ? "bad" : "warn"}">${v.short ? "SHORT" : v.lev + "×"}</span>` : ""}${v.liquidation ? `<br><span class="muted" style="font-size:10px">liq ${money(v.liquidation)}</span>` : ""}`;
         return `<tr>
           <td><b>${p.sym}</b><br><span class="muted" style="font-family:Inter;font-size:11px">${p.name}</span></td>
-          <td>${v.units.toFixed(4)}${v.lev > 1 || v.short ? ` <span class="chip ${v.short ? "bad" : "warn"}">${v.short ? "SHORT" : v.lev + "×"}</span>` : ""}${v.liquidation ? `<br><span class="muted" style="font-size:10px">liq ${money(v.liquidation)}</span>` : ""}</td>
+          <td>${unitsDisplay}</td>
           <td>${money(v.avgCost)}</td>
-          <td>${money(v.priceUSD)}<br><span class="muted" style="font-size:10.5px">${v.price.toFixed(2)} ${v.ccy}</span></td>
+          <td>${money(v.priceUSD)}<br><span class="muted" style="font-size:10.5px">${isPM ? `${(v.price * 100).toFixed(0)}% odds` : `${v.price.toFixed(2)} ${v.ccy}`}</span></td>
           <td>${money(v.value)}</td>
           <td class="${cls(v.pl)}">${money(v.pl)}<br><span style="font-size:11px">${pct(v.plPct)}</span></td>
           <td>${v.dayPl == null ? '<span class="chip neutral">new ✨</span>' : `<span class="${cls(v.dayPl)}">${money(v.dayPl)}</span>`}</td>

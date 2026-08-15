@@ -1257,3 +1257,152 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
   letter-spacing: 0.2px;
 }
+
+/* ---------- Polymarket Dedicated Order Ticket ---------- */
+.pm-ticket-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(147, 51, 234, 0.15);
+  border: 1px solid rgba(147, 51, 234, 0.35);
+  color: #c084fc;
+}
+
+.pm-action-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.pm-action-seg button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 7px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: .15s;
+}
+.pm-action-seg button.active {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.pm-action-seg button[data-act="buy"].active {
+  background: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+.pm-action-seg button[data-act="sell"].active {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.pm-outcomes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pm-outcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.pm-outcome-card:hover {
+  border-color: rgba(147, 51, 234, 0.4);
+  background: rgba(147, 51, 234, 0.08);
+}
+.pm-outcome-card.active.yes {
+  border-color: #34d399;
+  background: rgba(52, 211, 153, 0.14);
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.2);
+}
+.pm-outcome-card.active.no {
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.14);
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.2);
+}
+.pm-outcome-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.pm-outcome-price {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pm-outcome-mult {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--accent-2);
+  background: rgba(139, 92, 246, 0.15);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-top: 2px;
+}
+
+.pm-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 9px 12px;
+  margin: 12px 0;
+  text-align: center;
+}
+.pm-metric-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pm-metric-k {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pm-metric-v {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.pm-presets {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.pm-presets span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+

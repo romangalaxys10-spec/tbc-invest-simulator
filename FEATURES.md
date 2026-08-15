@@ -181,7 +181,7 @@
 | Polymarket Predictive Shreds & Orderbook Depth (CLOB depth, bid/ask walls, implied payout multiples, whale bets) | `api/shreds.js` `polymarketDecoder` · `shreds.js` `THEME.PM` · `.flow-token.yes/.no/.pm` |
 | Polymarket Real-Time Prediction Radar Scanner (Probability Surges, Consensus, Asymmetric Value, Dead Heat volatility) | `api/scan.js` `pushPM` · `alerts.js` |
 | Polymarket Desk Signals & Technical Probability Analysis | `api/analysis.js` `polymarketAnalysis` (Prediction Desk, Market Maker Desk, Contrarian Desk) |
-| Binary Contract Trading & Simulation (Trade YES/NO contracts, attach SL/TP, Paper portfolio tracking) | `portfolio.js` `openTradeModal` · `app.js` `renderSelected` |
+| Binary Contract Trading & Dedicated Prediction Ticket (YES/NO outcome cards, CLOB odds, share calculations, max payout, return-on-win metrics, odds-based SL/TP, and paper portfolio tracking) | `portfolio.js` `openTradeModal/updatePM/pm-outcome-card` · `styles.css` `.pm-outcomes-grid` |
 
 ## 12. Storage Registry (never migrate blindly)
 
