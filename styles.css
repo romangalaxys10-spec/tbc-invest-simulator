@@ -1316,32 +1316,55 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- Portfolio Construction & Allocation Blueprint ---------- */
 .insight-blueprint-container {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(26, 22, 48, 0.85) 0%, rgba(17, 14, 34, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  padding: 16px;
+  padding: 18px;
   margin-top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  backdrop-filter: blur(12px);
 }
 .insight-blueprint-header {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .insight-blueprint-title {
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 14.5px;
+  font-weight: 800;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: 0.2px;
 }
 .insight-blueprint-sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
-  line-height: 1.4;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.insight-blueprint-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.15);
+  white-space: nowrap;
 }
 .insight-blueprint-meta-bar {
   display: flex;
@@ -1349,46 +1372,79 @@ input[type="range"]::-moz-range-thumb {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 7px 12px;
+  padding: 9px 14px;
   background: rgba(139, 92, 246, 0.08);
-  border: 1px dashed rgba(139, 92, 246, 0.25);
-  border-radius: 8px;
-  font-size: 11px;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 9px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 .insight-blueprint-meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.insight-blueprint-meta-item b {
+  color: var(--text);
+}
+.insight-blueprint-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
 }
 .insight-blueprint-mechanism {
-  font-size: 11.5px;
-  color: #e2daf8;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 10px 12px;
-  border-radius: 8px;
-  line-height: 1.5;
+  font-size: 12px;
+  color: #e5e0f8;
+  background: rgba(13, 10, 28, 0.65);
+  padding: 12px 14px;
+  border-radius: 9px;
+  line-height: 1.55;
   border-left: 3px solid var(--accent);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 .insight-blueprint-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
 }
 .insight-blueprint-card {
-  background: var(--panel-2);
-  border: 1px solid rgba(139, 92, 246, 0.15);
-  border-radius: 10px;
-  padding: 13px;
+  background: rgba(22, 18, 43, 0.75);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 11px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  gap: 12px;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.insight-blueprint-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 .insight-blueprint-card:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.15);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2), 0 0 16px rgba(139, 92, 246, 0.1);
+}
+.insight-blueprint-card:hover::before {
+  opacity: 1;
 }
 .insight-blueprint-card-head {
   display: flex;
@@ -1396,29 +1452,34 @@ input[type="range"]::-moz-range-thumb {
   gap: 10px;
 }
 .insight-blueprint-icon {
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
-  background: rgba(139, 92, 246, 0.12);
-  padding: 6px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  padding: 7px;
   border-radius: 8px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .insight-blueprint-card-info {
   flex: 1;
   min-width: 0;
 }
 .insight-blueprint-card-title {
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .insight-blueprint-card-sub {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--muted);
   font-family: var(--mono);
+  margin-top: 1px;
 }
 .insight-blueprint-badge {
   display: inline-flex;
@@ -1426,85 +1487,158 @@ input[type="range"]::-moz-range-thumb {
   gap: 4px;
   font-size: 10px;
   font-weight: 800;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   white-space: nowrap;
 }
 .insight-blueprint-badge.hedge {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--up);
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
   border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.12);
 }
 .insight-blueprint-badge.anchor {
-  background: rgba(96, 165, 250, 0.15);
+  background: rgba(96, 165, 250, 0.14);
   color: #60a5fa;
   border: 1px solid rgba(96, 165, 250, 0.35);
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.12);
 }
 .insight-blueprint-badge.growth {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.14);
   color: #c084fc;
   border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.12);
+}
+.insight-blueprint-badge.alpha {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.12);
+}
+.insight-blueprint-alloc-wrap {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .insight-blueprint-alloc-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
   font-size: 11px;
 }
 .insight-blueprint-alloc-label {
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 .insight-blueprint-alloc-val {
   font-family: var(--mono);
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text);
 }
+.insight-blueprint-progress-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.insight-blueprint-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed, #06b6d4);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+.insight-blueprint-progress-fill.hedge {
+  background: linear-gradient(90deg, #059669, #34d399);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+}
+.insight-blueprint-progress-fill.anchor {
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.4);
+}
+.insight-blueprint-progress-fill.growth {
+  background: linear-gradient(90deg, #7c3aed, #c084fc);
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.4);
+}
+.insight-blueprint-progress-fill.alpha {
+  background: linear-gradient(90deg, #d97706, #fbbf24);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
 .insight-blueprint-details {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
-  line-height: 1.4;
+  line-height: 1.45;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   flex: 1;
 }
 .insight-blueprint-detail-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 7px;
 }
 .insight-blueprint-detail-dot {
-  color: var(--accent-2);
-  font-weight: 700;
-  font-size: 11px;
+  color: #a78bfa;
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1;
+}
+.insight-blueprint-power-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
 .insight-blueprint-trade-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  color: #c4b5fd;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.25) 0%, rgba(109, 40, 217, 0.35) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #e9d5ff;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
 }
 .insight-blueprint-trade-btn:hover {
-  background: var(--accent);
+  background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%);
   color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+  border-color: #a78bfa;
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
+  transform: translateY(-1px);
+}
+.insight-blueprint-trade-btn:active {
+  transform: translateY(0);
+}
+
+/* Stress test matrix table */
+.insight-blueprint-stress-wrap {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.insight-blueprint-stress-head {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ---------- Polymarket Dedicated Order Ticket ---------- */
