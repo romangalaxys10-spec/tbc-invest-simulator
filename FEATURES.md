@@ -167,7 +167,7 @@
 | Feature | Code |
 |---|---|
 | Macro Correlation Matrix & Cross-Asset Heatmap (Equities, Crypto, Yields, Gold, Oil, Forex) | `analysis.js` `viewIntel` · `index.html` `data-a="intel"` |
-| Macro Economic Playbook & Fed / Inflation regime guide | `analysis.js` `viewEvents` (macroHtml table) |
+| Macro Economic Playbook & Global Calendar (Event catalysts, consensus, prior, and expected Bullish vs. Bearish triggers) | `analysis.js` `viewEvents` (macroHtml table) |
 | Latency-free Web Audio synthesizer (Trade fill, TP chord, SL tone, Radar chirp, Tap) | `audio.js` `soundFx` |
 | Tactile vibration haptics on mobile browsers (`navigator.vibrate`) | `audio.js` `vibrate` |
 | Sound & Haptics toggle control button (persisted in localStorage) | `audio.js` `setSoundEnabled` · `index.html` `#soundToggleBtn` |

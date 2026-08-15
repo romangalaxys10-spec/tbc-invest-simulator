@@ -263,31 +263,122 @@ function viewFund(d) {
 function viewEvents(d) {
   const e = d.events;
   const macroEvents = [
-    { date: "2026-09-16", event: "🇺🇸 US Federal Reserve (FOMC) Rate Decision", cat: "Fed / Rates", impact: "High", cons: "5.25%", prior: "5.25%", note: "Markets watching dot-plot for rate cut cadence." },
-    { date: "2026-09-11", event: "🇺🇸 US Consumer Price Index (CPI YoY)", cat: "Inflation", impact: "High", cons: "2.8%", prior: "2.9%", note: "Crucial inflation gauge; beat boosts USD & pressures growth tech." },
-    { date: "2026-09-04", event: "🇺🇸 Non-Farm Payrolls (NFP) & Unemployment", cat: "Labor Market", impact: "High", cons: "+165k", prior: "+174k", note: "Labor cooling reinforces Fed easing path." },
-    { date: "2026-09-17", event: "🇪🇺 European Central Bank (ECB) Policy Rate", cat: "ECB / Eurozone", impact: "High", cons: "3.50%", prior: "3.75%", note: "Impacts European banking equities & EURUSD." },
-    { date: "2026-09-25", event: "🇺🇸 US Core PCE Price Index (MoM)", cat: "Fed Preferred Gauge", impact: "Medium", cons: "+0.2%", prior: "+0.2%", note: "Fed's primary inflation benchmark." },
+    {
+      date: "2026-09-04",
+      event: "🇺🇸 US Non-Farm Payrolls (NFP) & Unemployment",
+      cat: "Labor Market",
+      impact: "High",
+      cons: "+165k",
+      prior: "+174k",
+      bias: "🟢 Bullish (Goldilocks)",
+      biasCls: "good",
+      trigger: "Cooling labor (+140k–170k) keeps Fed rate cuts on track without recession fears.",
+      scenarios: "• <b>Bullish if:</b> +130k to +175k (solid growth + rate cut fuel)<br>• <b>Bearish if:</b> >+220k (hot jobs delay cuts) or <+90k (hard landing scare)"
+    },
+    {
+      date: "2026-09-11",
+      event: "🇺🇸 US Consumer Price Index (CPI YoY)",
+      cat: "Inflation",
+      impact: "High",
+      cons: "2.8%",
+      prior: "2.9%",
+      bias: "🟢 Bullish if ≤2.8%",
+      biasCls: "good",
+      trigger: "Disinflation continuation unlocks liquidity and eases bond yields.",
+      scenarios: "• <b>Bullish if:</b> ≤ 2.8% (solid disinflation, risk-on rally)<br>• <b>Bearish if:</b> ≥ 3.0% (sticky inflation rebound, yields spike, tech pressured)"
+    },
+    {
+      date: "2026-09-16",
+      event: "🇺🇸 US Federal Reserve (FOMC) Rate Decision",
+      cat: "Fed / Rates",
+      impact: "High",
+      cons: "5.25%",
+      prior: "5.25%",
+      bias: "🟢 Bullish / Dovish",
+      biasCls: "good",
+      trigger: "Markets pricing high odds of rate easing cadence & dovish dot plot guidance.",
+      scenarios: "• <b>Bullish if:</b> 25bps cut or dovish pause with dovish dot-plot<br>• <b>Bearish if:</b> Hawkish hold with delayed cut projections"
+    },
+    {
+      date: "2026-09-17",
+      event: "🇪🇺 European Central Bank (ECB) Policy Rate",
+      cat: "ECB / Rates",
+      impact: "High",
+      cons: "3.50%",
+      prior: "3.75%",
+      bias: "🟢 Bullish (Rate Cut)",
+      biasCls: "good",
+      trigger: "Anticipated 25bps rate cut reduces borrowing costs for European equities.",
+      scenarios: "• <b>Bullish if:</b> 25bps cut confirmed (3.50%) with accommodative tone<br>• <b>Bearish if:</b> Surprise pause or stagflation commentary"
+    },
+    {
+      date: "2026-09-18",
+      event: "🇯🇵 Bank of Japan (BOJ) Interest Rate Decision",
+      cat: "Central Bank",
+      impact: "High",
+      cons: "0.25%",
+      prior: "0.25%",
+      bias: "🟡 Two-Way / Volatile",
+      biasCls: "warn",
+      trigger: "Watch Yen carry trade dynamics. Rate hike could spark risk asset pullback.",
+      scenarios: "• <b>Bullish if:</b> Hold at 0.25% with patient guidance (calms global carry trade)<br>• <b>Bearish if:</b> Surprise hike to 0.50% (Yen spikes, triggers risk-off liquidation)"
+    },
+    {
+      date: "2026-09-24",
+      event: "🇺🇸 US GDP Growth (Q2 Final Annualized)",
+      cat: "Growth",
+      impact: "Medium",
+      cons: "+2.8%",
+      prior: "+2.8%",
+      bias: "🟢 Bullish (Soft Landing)",
+      biasCls: "good",
+      trigger: "Confirms robust corporate earnings backdrop without overheating.",
+      scenarios: "• <b>Bullish if:</b> ≥ +2.7% (confirms soft landing resilience)<br>• <b>Bearish if:</b> < +2.0% (recession growth drag)"
+    },
+    {
+      date: "2026-09-25",
+      event: "🇺🇸 US Core PCE Price Index (MoM)",
+      cat: "Fed Preferred Gauge",
+      impact: "Medium",
+      cons: "+0.2%",
+      prior: "+0.2%",
+      bias: "🟢 Bullish if ≤0.2%",
+      biasCls: "good",
+      trigger: "Fed's primary inflation gauge confirming price stability.",
+      scenarios: "• <b>Bullish if:</b> +0.1% or +0.2% (cements easing path)<br>• <b>Bearish if:</b> ≥ +0.3% (services inflation persistence)"
+    },
   ];
 
   const macroHtml = `
     <h3 style="margin-top:20px">🌐 Global Macroeconomic Calendar</h3>
-    <p class="lead">Key macroeconomic catalysts influencing global liquidity, interest rates, and asset prices across equities, crypto, bonds, and FX.</p>
+    <p class="lead">Key macroeconomic catalysts influencing global liquidity, interest rates, and asset prices across equities, crypto, bonds, and FX — with expected bullish vs. bearish market reactions.</p>
     <table class="table">
-      <tr><th>Date</th><th>Event</th><th>Category</th><th>Impact</th><th>Consensus</th><th>Previous</th></tr>
+      <tr>
+        <th>Date</th>
+        <th>Event & Catalysts</th>
+        <th>Category</th>
+        <th>Impact</th>
+        <th>Consensus</th>
+        <th>Expected Market Bias</th>
+      </tr>
       ${macroEvents.map((m) => `<tr>
         <td><b>${m.date}</b></td>
-        <td>${m.event}<br><span class="muted" style="font-size:10.5px">${m.note}</span></td>
+        <td>
+          <b>${m.event}</b><br>
+          <span class="muted" style="font-size:10.5px">${m.trigger}</span>
+          <div style="margin-top:5px;font-size:10.5px;line-height:1.45">${m.scenarios}</div>
+        </td>
         <td><span class="chip neutral">${m.cat}</span></td>
         <td><span class="chip ${m.impact === "High" ? "bad" : "warn"}">🔴 ${m.impact}</span></td>
-        <td><b>${m.cons}</b></td>
-        <td class="muted">${m.prior}</td>
+        <td><b>${m.cons}</b><br><span class="muted" style="font-size:10px">Prior: ${m.prior}</span></td>
+        <td><span class="chip ${m.biasCls}">${m.bias}</span></td>
       </tr>`).join("")}
     </table>
     <div class="summary-box" style="margin-top:12px">
       ⚡ <b>Asset Class Reaction Playbook:</b><br>
-      • <b>Hotter Inflation (CPI/PCE Beat):</b> USD strengthens, yields rise, growth stocks & long-duration tech face valuation compression.<br>
-      • <b>Cooling Jobs / Rate Cuts:</b> Eases credit spreads, bullish for Equities, Crypto, and Gold; bearish for USD cash yield.
+      • <b>Hotter Inflation (CPI/PCE Beat):</b> USD strengthens, yields rise → 🔴 <b>Bearish</b> for Growth Stocks & Tech, neutral/positive for Energy/Cash.<br>
+      • <b>Cooling Jobs / Rate Cuts:</b> Eases financial conditions → 🟢 <b>Bullish</b> for Equities, Crypto, and Gold; 🔴 <b>Bearish</b> for USD cash yield.<br>
+      • <b>BOJ Rate Hike / Yen Spike:</b> Unwinds Yen carry trades → 🔴 <b>Bearish</b> for Global Tech & Risk Assets in near term.
     </div>`;
 
   if (d.isFund) {
