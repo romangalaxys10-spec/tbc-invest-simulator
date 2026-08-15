@@ -5,6 +5,7 @@ const KEY_ALERTS = "tbc_alerts_v1";
 const HOUR = 3600000;
 
 let lastScan = null;
+let radarFilter = "all";
 
 function loadSeen() {
   try { return JSON.parse(localStorage.getItem(KEY_ALERTS)) || { seen: {}, lastView: 0 }; }
@@ -56,7 +57,7 @@ export function renderIntraday() {
   const box = $("intradayPanel");
   if (!box) return;
   if (!lastScan) {
-    box.innerHTML = `<div class="chart-head"><h2>⚡ Intraday Radar</h2><button class="btn small" id="radarScan">Scan now</button></div><p class="hint">Scanning all 33 instruments for live signals…</p>`;
+    box.innerHTML = `<div class="chart-head"><h2>⚡ Intraday Radar</h2><button class="btn small" id="radarScan">Scan now</button></div><p class="hint">Scanning all instruments for live signals…</p>`;
     wireScanBtn();
     return;
   }
@@ -65,33 +66,52 @@ export function renderIntraday() {
     wireScanBtn();
     return;
   }
-  const bulls = lastScan.alerts.filter((a) => a.dir === "bullish").length;
-  const bears = lastScan.alerts.filter((a) => a.dir === "bearish").length;
+  const alerts = lastScan.alerts || [];
+  const bulls = alerts.filter((a) => a.dir === "bullish").length;
+  const bears = alerts.filter((a) => a.dir === "bearish").length;
   const t = new Date(lastScan.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const shown = radarFilter === "all" ? alerts : alerts.filter((a) => a.dir === radarFilter);
+  const stars = (n) => "★".repeat(n) + '<span class="dim">★</span>'.repeat(3 - n);
+  const fmtP = (v) => (v >= 1000 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(4));
+
   box.innerHTML = `
-    <div class="chart-head">
-      <h2>⚡ Intraday Radar — signals &amp; opportunities</h2>
-      <div class="legend">
-        <span class="chip good">${bulls} bullish</span>
-        <span class="chip bad">${bears} bearish</span>
-        <span class="muted" style="font-size:11px">scanned ${lastScan.scanned} instruments · ${t}</span>
+    <div class="radar-hero">
+      <div class="radar-stats">
+        <div class="radar-stat up"><span class="n">${bulls}</span><span class="l">bullish</span></div>
+        <div class="radar-stat down"><span class="n">${bears}</span><span class="l">bearish</span></div>
+        <div class="radar-stat"><span class="n">${lastScan.scanned}</span><span class="l">scanned</span></div>
+      </div>
+      <div class="radar-toolbar">
+        <button class="rfilter ${radarFilter === "all" ? "active" : ""}" data-f="all">All ${alerts.length}</button>
+        <button class="rfilter up ${radarFilter === "bullish" ? "active" : ""}" data-f="bullish">▲ Bullish ${bulls}</button>
+        <button class="rfilter down ${radarFilter === "bearish" ? "active" : ""}" data-f="bearish">▼ Bearish ${bears}</button>
         <button class="btn small" id="radarScan">↻ Scan now</button>
       </div>
     </div>
-    ${lastScan.alerts.length ? `<div class="alert-list">${lastScan.alerts.map((a) => `
-      <div class="alert-row ${a.dir}">
-        <div class="alert-main">
-          <b>${a.sym}</b> ${dirChip(a.dir)} <span class="chip neutral">${a.type}</span>
-          <span class="muted" style="font-family:Inter;font-size:11.5px">${a.detail}</span>
+    <div class="radar-sub">${t} · hourly auto-scan · strength-sorted (patterns &gt; crosses &gt; RSI)</div>
+    ${shown.length ? `<div class="radar-grid">${shown.map((a) => `
+      <div class="radar-card ${a.dir}">
+        <div class="rc-top">
+          <div class="rc-dir ${a.dir}">${a.dir === "bullish" ? "▲" : a.dir === "bearish" ? "▼" : "•"}</div>
+          <div class="rc-id">
+            <div class="rc-sym">${a.sym}</div>
+            <div class="rc-type">${a.type}</div>
+          </div>
+          <div class="rc-price">${fmtP(a.price)}</div>
         </div>
-        <div class="alert-actions">
-          <span class="muted" style="font-size:10.5px;max-width:280px;font-family:Inter">${a.action}</span>
-          <button class="btn small primary radar-exec" data-sym="${a.sym}" data-side="${a.dir === "bearish" ? "sell" : "buy"}" data-src="Radar: ${a.type}">⚡</button>
+        <div class="rc-detail">${a.detail}</div>
+        <div class="rc-plan"><span class="k">PLAN</span>${a.action}</div>
+        <div class="rc-foot">
+          <span class="rc-stars" title="signal strength">${stars(a.strength || 1)}</span>
+          <button class="btn small primary radar-exec" data-sym="${a.sym}" data-side="${a.dir === "bearish" ? "sell" : "buy"}" data-src="Radar: ${a.type} ${a.sym}">⚡ Execute</button>
         </div>
       </div>`).join("")}</div>`
-    : `<div class="empty">No active signals right now — the whole universe is quiet. Next automatic scan within the hour.</div>`}
-    <p class="hint">Automatic scan every hour · alerts deduplicated per hour · strength-sorted (pattern triggers &gt; crosses &gt; RSI). Paper trading only — not advice.</p>`;
+    : `<div class="empty">No ${radarFilter === "all" ? "active" : radarFilter} signals right now — the universe is quiet. Next automatic scan within the hour.</div>`}
+    <p class="hint">Paper trading only — not advice. Signals recompute on every scan.</p>`;
   wireScanBtn();
+  box.querySelectorAll(".rfilter").forEach((b) => {
+    b.onclick = () => { radarFilter = b.dataset.f; renderIntraday(); };
+  });
   box.querySelectorAll(".radar-exec").forEach((b) => {
     b.onclick = () => import("./portfolio.js").then(({ openTradeModal }) =>
       openTradeModal(b.dataset.sym, { side: b.dataset.side, orderType: "market", source: b.dataset.src }));

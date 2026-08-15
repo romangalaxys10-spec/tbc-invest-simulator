@@ -30,17 +30,20 @@
     <button class="alert-bell" id="alertBell" title="Intraday signals &amp; alerts">🔔<span class="alert-count" id="alertCount"></span></button>
   </header>
 
-  <main class="layout">
-    <aside class="panel instruments">
-      <div class="tabs" id="tabs">
-        <button data-cat="stock" class="active">Stocks</button>
+  <nav class="asset-tabs" aria-label="Instrument categories">
+    <div class="tabs" id="tabs">
+      <button data-cat="stock" class="active">Stocks</button>
         <button data-cat="etf">ETFs</button>
         <button data-cat="bond">Bonds</button>
         <button data-cat="futures">Futures</button>
         <button data-cat="crypto">Crypto</button>
         <button data-cat="forex">Forex</button>
-        <button data-cat="index">Indices</button>
-      </div>
+      <button data-cat="index">Indices</button>
+    </div>
+  </nav>
+
+  <main class="layout">
+    <aside class="panel instruments">
       <input id="search" type="search" placeholder="Search name or ticker…" autocomplete="off" />
       <div class="instrument-list" id="instrumentList"></div>
       <p class="hint">
