@@ -399,7 +399,7 @@ function viewEvents(d) {
               </div>
             </td>
             <td><span class="chip neutral">${m.cat}</span></td>
-            <td><span class="chip ${m.impact === "High" ? "bad" : "warn"}">🔴 ${m.impact}</span></td>
+            <td><span class="macro-impact-badge ${m.impact.toLowerCase()}"><span class="impact-dot"></span>${m.impact}</span></td>
             <td class="mono"><b>${m.cons}</b><br><span class="muted" style="font-size:10.5px">Prior: ${m.prior}</span></td>
             <td><span class="macro-bias-badge ${m.biasCls}">${m.bias}</span></td>
           </tr>`).join("")}
