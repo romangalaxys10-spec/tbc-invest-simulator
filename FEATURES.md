@@ -78,7 +78,7 @@
 | Feature | Code |
 |---|---|
 | $100k account, positions, P/L since fill vs Day move | `portfolio.js` `renderPortfolio/positionView` |
-| Order ticket: buy/sell, long/short, market/limit/stop/auction, 1×/2×/5× leverage, liquidations | `portfolio.js` `openTradeModal/executeAtMarket/checkLiquidations` |
+| Order ticket: buy/sell, long/short, market/limit/stop/auction, 1×/2×/5× leverage, liquidations, togglable SL/TP brackets | `portfolio.js` `openTradeModal/executeAtMarket/checkLiquidations/toggleSL/toggleTP` |
 | Pending orders table + trigger execution + hourly auction tick | `portfolio.js` `processPendingOrders` |
 | 🎯 Exit ladders (portions at prices, presets, auto-exec) | `portfolio.js` `openExitsModal/processExits` |
 | Short positions (negative units) | `portfolio.js` |

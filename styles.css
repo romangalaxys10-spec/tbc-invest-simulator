@@ -875,7 +875,10 @@ input[type="range"]::-moz-range-thumb {
 @media (max-width: 900px) { .lf-body { grid-template-columns: 1fr; justify-items: center; } }
 
 /* order ticket: SL/TP bracket */
-.bracket-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.bracket-toggles { display: flex; gap: 14px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.bracket-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text); cursor: pointer; user-select: none; }
+.bracket-toggle input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+.bracket-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .bracket-row label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: 700; color: var(--text); }
 .bracket-row .field-hint { font-size: 9.5px; font-weight: 500; color: var(--muted); }
 .bracket-row input { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-size: 13.5px; font-family: var(--mono); box-shadow: inset 0 1px 3px rgba(0,0,0,.3); }

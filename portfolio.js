@@ -383,15 +383,26 @@ export async function openTradeModal(sym, opts = {}) {
     <label id="triggerWrap" style="display:${S.type === "market" ? "none" : "flex"}">Trigger price (USD)
       <input type="number" id="tradeTrigger" value="${S.trigger.toFixed(2)}" step="any" />
     </label>
-    <div class="bracket-row">
-      <label>🛑 Stop-loss (USD) <span class="field-hint">optional · caps downside</span>
-        <input type="number" id="tradeSL" placeholder="${slHint}" step="any" />
+    <div class="bracket-toggles">
+      <label class="bracket-toggle">
+        <input type="checkbox" id="toggleSL" ${S.stopHint ? "checked" : ""} />
+        <span>🛑 Stop-loss</span>
       </label>
-      <label>🎯 Take-profit (USD) <span class="field-hint">optional · locks gain</span>
-        <input type="number" id="tradeTP" placeholder="${tpHint}" step="any" />
+      <label class="bracket-toggle">
+        <input type="checkbox" id="toggleTP" ${S.targetHint ? "checked" : ""} />
+        <span>🎯 Take-profit</span>
+      </label>
+      <span class="field-hint" style="margin-left:auto;align-self:center">optional brackets</span>
+    </div>
+    <div class="bracket-row" id="bracketRow" style="display:${S.stopHint || S.targetHint ? "grid" : "none"}">
+      <label id="wrapSL" style="display:${S.stopHint ? "flex" : "none"}">🛑 Stop-loss (USD) <span class="field-hint">caps downside</span>
+        <input type="number" id="tradeSL" placeholder="${slHint}" value="${S.stopHint ? S.stopHint.toFixed(2) : ""}" step="any" />
+      </label>
+      <label id="wrapTP" style="display:${S.targetHint ? "flex" : "none"}">🎯 Take-profit (USD) <span class="field-hint">locks gain</span>
+        <input type="number" id="tradeTP" placeholder="${tpHint}" value="${S.targetHint ? S.targetHint.toFixed(2) : ""}" step="any" />
       </label>
     </div>
-    <div class="bracket-presets">
+    <div class="bracket-presets" id="bracketPresets" style="display:${S.stopHint || S.targetHint ? "flex" : "none"}">
       <span class="muted" style="font-size:10.5px">quick fill:</span>
       <button type="button" class="btn small" data-brk="5">±5%</button>
       <button type="button" class="btn small" data-brk="10">±10%</button>
@@ -407,6 +418,8 @@ export async function openTradeModal(sym, opts = {}) {
 
   const amountEl = $("tradeAmount"), levEl = $("tradeLev"), trigEl = $("tradeTrigger"), trigWrap = $("triggerWrap");
   const slEl = $("tradeSL"), tpEl = $("tradeTP");
+  const toggleSL = $("toggleSL"), toggleTP = $("toggleTP");
+  const wrapSL = $("wrapSL"), wrapTP = $("wrapTP"), bracketRow = $("bracketRow"), bracketPresets = $("bracketPresets");
   const sideSeg = $("sideSeg"), typeSeg = $("typeSeg");
 
   sideSeg.addEventListener("click", (e) => {
@@ -423,16 +436,35 @@ export async function openTradeModal(sym, opts = {}) {
     $("tradeConfirm").textContent = S.type === "market" ? "Execute now" : "Place order";
     update();
   });
+  [toggleSL, toggleTP].forEach((t) => t.addEventListener("change", () => {
+    if (toggleSL.checked && !slEl.value) {
+      const long = S.side === "buy";
+      const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
+      slEl.value = (long ? px * 0.95 : px * 1.05).toFixed(2);
+    }
+    if (toggleTP.checked && !tpEl.value) {
+      const long = S.side === "buy";
+      const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
+      tpEl.value = (long ? px * 1.10 : px * 0.90).toFixed(2);
+    }
+    update();
+  }));
   [amountEl, levEl, trigEl, slEl, tpEl].forEach((el) => el.addEventListener("input", update));
   body.querySelectorAll("[data-brk]").forEach((b) => {
     b.onclick = () => {
       const long = S.side === "buy";
-      if (b.dataset.brk === "clear") { slEl.value = ""; tpEl.value = ""; }
-      else {
+      if (b.dataset.brk === "clear") {
+        slEl.value = ""; tpEl.value = "";
+        toggleSL.checked = false; toggleTP.checked = false;
+      } else {
+        if (!toggleSL.checked && !toggleTP.checked) {
+          toggleSL.checked = true;
+          toggleTP.checked = true;
+        }
         const pct = Number(b.dataset.brk) / 100;
         const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
-        slEl.value = (long ? px * (1 - pct) : px * (1 + pct)).toFixed(2);
-        tpEl.value = (long ? px * (1 + pct * 2) : px * (1 - pct * 2)).toFixed(2);
+        if (toggleSL.checked) slEl.value = (long ? px * (1 - pct) : px * (1 + pct)).toFixed(2);
+        if (toggleTP.checked) tpEl.value = (long ? px * (1 + pct * 2) : px * (1 - pct * 2)).toFixed(2);
       }
       update();
     };
@@ -440,8 +472,16 @@ export async function openTradeModal(sym, opts = {}) {
 
   function update() {
     S.lev = Number(levEl.value) || 1;
-    S.sl = Number(slEl.value) || null;
-    S.tp = Number(tpEl.value) || null;
+    const useSL = toggleSL.checked;
+    const useTP = toggleTP.checked;
+    wrapSL.style.display = useSL ? "flex" : "none";
+    wrapTP.style.display = useTP ? "flex" : "none";
+    bracketRow.style.display = (useSL || useTP) ? "grid" : "none";
+    bracketRow.style.gridTemplateColumns = (useSL && useTP) ? "1fr 1fr" : "1fr";
+    bracketPresets.style.display = (useSL || useTP) ? "flex" : "none";
+
+    S.sl = useSL ? (Number(slEl.value) || null) : null;
+    S.tp = useTP ? (Number(tpEl.value) || null) : null;
     const amt = Math.max(0, Number(amountEl.value) || 0);
     const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
     const units = S.side === "buy" ? (amt * S.lev) / px : amt / px;
