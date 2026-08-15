@@ -840,3 +840,9 @@ input[type="range"]::-moz-range-thumb {
 .shreds-badge:hover { border-color: #fbbf24; box-shadow: 0 0 18px rgba(251,191,36,.25); transform: translateY(-1px); }
 .shreds-badge b { color: #fde68a; }
 .shreds-badge span { background: rgba(251,191,36,.18); border: 1px solid rgba(251,191,36,.4); border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+.flow-token.btc { background: linear-gradient(135deg, #f7931a, #ffd166); color: #1a1205; }
+.flow-token.eth { background: linear-gradient(135deg, #627eea, #8fa4f3); color: #fff; }
+.gauge-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px; padding: 13px 15px; }
+.gauge-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.gauge-head h3 { margin: 0; font-size: 15px; letter-spacing: .5px; }
+.shred-stat .n { color: var(--th, #fbbf24); }

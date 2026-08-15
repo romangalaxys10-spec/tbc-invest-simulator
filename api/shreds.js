@@ -1,181 +1,199 @@
-// Crypto shreds: raw on-chain telemetry from free public Solana RPCs.
-// Scans ~8 confirmed blocks: DEX program flow (top + inner instructions),
-// largest token flows with live SOL pricing, fail ratio, network velocity.
-// (True shred streaming = Jito ShredStream gRPC, paid; this is the free
-// raw-RPC approximation, slot-fresh.)
+// Universal shreds: per-chain raw telemetry from free, keyless sources.
+// BTC -> mempool.space (real mempool: pre-confirmation data)
+// ETH/AVAX/ARB/OP -> public EVM RPCs (block flow, whales, DEX routers)
+// SOL -> public Solana RPCs (blocks, whales, Jupiter/Raydium flow)
 
 import { fetchChart } from "../lib/yahoo.js";
 
-const BUILTIN = ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
-
-function safeProvider(u) {
-  try {
-    const x = new URL(u);
-    if (x.protocol !== "https:") return null;
-    const h = x.hostname;
-    if (/^(localhost|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h === "::1" || h.endsWith(".local") || h.endsWith(".internal")) return null;
-    return x.toString();
-  } catch {
-    return null;
-  }
-}
-
-const providerStats = new Map();
-async function rpc(method, params = [], pool = null) {
-  const urls = pool || BUILTIN;
-  let lastErr;
-  for (const url of urls) {
-    const t0 = Date.now();
-    const ep = typeof url === "string" ? { url, key: null } : url;
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 9000);
-      const r = await fetch(ep.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(ep.key ? { Authorization: `Bearer ${ep.key}` } : {}) },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-        signal: ctrl.signal,
-      });
-      clearTimeout(t);
-      const j = await r.json();
-      if (j.error) throw new Error(j.error.message);
-      const host = new URL(ep.url).host;
-      providerStats.set(host, { host, ms: Date.now() - t0, ok: true });
-      return j.result;
-    } catch (e) {
-      const host2 = new URL(ep.url).host;
-      providerStats.set(host2, { host: host2, ms: Date.now() - t0, ok: false, err: e.message?.slice(0, 60) });
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error("RPC failed");
-}
-
-const PROGRAMS = [
-  { id: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4", name: "Jupiter" },
-  { id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", name: "Raydium AMM" },
-  { id: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", name: "Raydium CLMM" },
-  { id: "6EF8rrecthR8Dkzon1NaiLja4gDr39TQF5k9pQN1K4uj", name: "Pump.fun" },
-  { id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", name: "Orca" },
-  { id: "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", name: "OpenBook" },
-];
-const MINTS = {
-  So11111111111111111111111111111111111111112: "wSOL",
-  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
-  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
+const PRICE_SYM = {
+  "BTC-USD": "BTC-USD", "BTC=F": "BTC-USD",
+  "ETH-USD": "ETH-USD", "ETH=F": "ETH-USD",
+  "AVAX-USD": "AVAX-USD", "ARB-USD": "ARB-USD", "OP-USD": "OP-USD",
+  "SOL-USD": "SOL-USD", "BONK-USD": "SOL-USD", "WIF-USD": "SOL-USD",
 };
 
-export default async function handler(req, res) {
+async function priceOf(sym) {
   try {
-    // external providers: POST {providers:[{url,key}]} or ?providers=url1,url2 — max 3, https only
-    let pool = [...BUILTIN];
-    let incoming = [];
-    try {
-      if (req.method === "POST" && req.body?.providers) incoming = req.body.providers;
-      else if (req.query.providers) incoming = String(req.query.providers).split(",").map((u) => ({ url: u }));
-    } catch {}
-    incoming = incoming.filter((p) => p?.url).slice(0, 3);
-    const safe = incoming.map((p) => safeProvider(p.url)).filter(Boolean);
-    for (let i = 0; i < safe.length; i++) {
-      pool.unshift({ url: safe[i], key: incoming.find((p) => safeProvider(p.url) === safe[i])?.key || null });
-    }
-    const withAuth = (u) => (typeof u === "string" ? { url: u, key: null } : u);
-    const rpcPool = pool.map(withAuth);
-    // probe mode: health-check providers only
-    if (req.query.probe === "1") {
-      await Promise.allSettled([rpc("getEpochInfo", [], rpcPool)]);
-      return res.status(200).json({ providers: [...providerStats.values()], slot: null, probedAt: Date.now() });
-    }
+    const p = PRICE_SYM[sym] || sym;
+    const ch = await fetchChart(p, Math.floor(Date.now() / 1000) - 5 * 86400, Math.floor(Date.now() / 1000) + 86400);
+    return ch?.meta?.regularMarketPrice ?? null;
+  } catch { return null; }
+}
 
-    const [perf, info, solChart] = await Promise.all([
-      rpc("getRecentPerformanceSamples", [6], rpcPool),
-      rpc("getEpochInfo", [], rpcPool),
-      fetchChart("SOL-USD", Math.floor(Date.now() / 1000) - 5 * 86400, Math.floor(Date.now() / 1000) + 86400).catch(() => null),
-    ]);
-    const solPrice = solChart?.meta?.regularMarketPrice ?? null;
-    const latest = perf[0];
-    const tps = latest.numTransactions / latest.samplePeriodSecs;
-    const slotMs = (latest.samplePeriodSecs / latest.numSlots) * 1000;
-    const slot = info.absoluteSlot;
-
-    const blocks = (
-      await Promise.all(
-        [2, 3, 4, 5, 6, 7, 8, 9].map((off) =>
-          rpc("getBlock", [slot - off, { encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0, commitment: "confirmed" }], rpcPool).catch(() => null)
-        )
-      )
-    ).filter(Boolean);
-
-    const counts = Object.fromEntries(PROGRAMS.map((p) => [p.id, 0]));
-    const flows = [];
-    let vol = { wSOL: 0, USDC: 0, USDT: 0 };
-    let fails = 0, totalTx = 0;
-
-    for (const b of blocks) {
-      for (const tx of b.transactions || []) {
-        totalTx++;
-        if (tx.meta?.err) fails++;
-        const all = [...(tx.transaction?.message?.instructions || [])];
-        for (const inn of tx.meta?.innerInstructions || []) all.push(...(inn.instructions || []));
-        const sig = tx.transaction?.signatures?.[0];
-        for (const ix of all) {
-          if (ix.programId in counts) counts[ix.programId]++;
-          const p = ix.parsed;
-          if (!p) continue;
-          // native SOL transfers
-          if (p.type === "transfer" && p.info?.lamports >= 20 * 1e9) {
-            flows.push({ sym: "SOL", amt: p.info.lamports / 1e9, usd: ((p.info.lamports / 1e9) * (solPrice || 0)), from: p.info.source, to: p.info.destination, sig, slot: slot - 1 });
-          }
-          // token transfers (wSOL + stables)
-          if ((p.type === "transferChecked" || p.type === "transfer") && p.info?.tokenAmount?.uiAmount != null) {
-            const sym = MINTS[p.info.mint];
-            if (!sym) continue;
-            const amt = p.info.tokenAmount.uiAmount;
-            vol[sym] += amt;
-            const usd = sym === "wSOL" ? amt * (solPrice || 0) : amt;
-            if (usd >= 3000) {
-              flows.push({ sym, amt, usd, from: p.info.source || p.info.authority || "?", to: p.info.destination || "?", sig, slot: slot - 1 });
-            }
-          }
+// ---------------- BTC decoder (mempool.space + blockstream) ----------------
+async function btcDecoder(symbol) {
+  const j = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+  const [fees, mem, blocks, price] = await Promise.all([
+    j("https://mempool.space/api/v1/fees/recommended"),
+    j("https://mempool.space/api/mempool"),
+    j("https://mempool.space/api/v1/blocks"),
+    priceOf(symbol),
+  ]);
+  const block = blocks[0];
+  // whale prints from the latest block (3 pages of txs)
+  const whales = [];
+  for (let page = 0; page < 3; page++) {
+    let txs;
+    try { txs = await j(`https://mempool.space/api/block/${block.id}/txs/${page * 25}`); }
+    catch { break; }
+    if (!Array.isArray(txs) || !txs.length) break;
+    for (const tx of txs) {
+      for (const out of tx.vout || []) {
+        const btc = (out.value || 0) / 1e8;
+        if (btc >= 5 && out.scriptpubkey_address) {
+          whales.push({ sym: "BTC", amt: btc, usd: btc * (price || 0), from: "block inputs", to: out.scriptpubkey_address, link: `https://mempool.space/tx/${tx.txid}` });
         }
       }
     }
+  }
+  whales.sort((a, b) => b.usd - a.usd);
+  const mvb = mem.vsize / 1e6;
+  const pressure = Math.min(100, Math.round((mvb / 80) * 100 + fees.fastestFee / 2));
+  const gaugeLabel = pressure > 60 ? "Congested" : pressure > 30 ? "Busy" : pressure > 12 ? "Normal" : "Calm";
+  return {
+    chain: "BTC", symbol, price,
+    stats: [
+      { label: "pending txs", value: mem.count.toLocaleString() },
+      { label: "mempool", value: `${mvb.toFixed(1)} MvB`, warn: mvb > 40 },
+      { label: "fastest fee", value: `${fees.fastestFee} sat/vB`, warn: fees.fastestFee > 30 },
+      { label: "block txs", value: block.tx_count.toLocaleString() },
+      { label: "block", value: `#${block.height}` },
+      { label: "BTC", value: price != null ? `$${price.toLocaleString()}` : "—" },
+    ],
+    gauge: { value: 100 - pressure, label: gaugeLabel, low: "congested", high: "calm", kind: "pressure" },
+    flows: whales.slice(0, 8),
+    activity: [
+      { name: "economy", count: fees.economyFee },
+      { name: "hour", count: fees.hourFee },
+      { name: "half-hour", count: fees.halfHourFee },
+      { name: "fastest", count: fees.fastestFee },
+    ],
+    activityLabel: "fee market (sat/vB)",
+    cards: btcCards(fees, mvb, whales[0]),
+    fetchedAt: Date.now(),
+  };
+}
+function btcCards(fees, mvb, biggest) {
+  const cards = [];
+  if (fees.fastestFee <= 5) cards.push({ icon: "🟢", cls: "buy", title: "Fees are dirt cheap — good action window", text: `Fastest fee is ${fees.fastestFee} sat/vB. Cheap fees mean low competition — a calm window if you want to act.`, trade: "BTC-USD", side: "buy" });
+  else if (fees.fastestFee > 30) cards.push({ icon: "⚠️", cls: "warn", title: "Bitcoin is congested", text: `Fastest fee ${fees.fastestFee} sat/vB with ${mvb.toFixed(0)}MvB backlog — transfers cost extra and confirmations lag. Not the moment for small moves.` });
+  else cards.push({ icon: "🟡", cls: "mid", title: "Fees normal", text: `Fastest fee ${fees.fastestFee} sat/vB — normal conditions, no fee edge either way.` });
+  if (biggest?.usd >= 500000) cards.push({ icon: "🐋", cls: "warn", title: `Whale print $${Math.round(biggest.usd / 1000)}k`, text: "A large BTC transfer just settled. Whales moving to exchanges often precede selling; to cold storage — accumulation." });
+  return cards;
+}
 
-    flows.sort((a, b) => b.usd - a.usd);
-    const programs = PROGRAMS.map((p) => ({ name: p.name, count: counts[p.id] })).sort((a, b) => b.count - a.count);
-    const volUsd = { wSOL: vol.wSOL * (solPrice || 0), USDC: vol.USDC, USDT: vol.USDT };
+// ---------------- EVM decoder (ETH / AVAX / ARB / OP) ----------------
+const EVM = {
+  "ETH-USD": { rpcs: ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"], name: "Ethereum", explorer: "https://etherscan.io/tx/", native: "ETH", whaleEth: 20 },
+  "ETH=F": { rpcs: ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"], name: "Ethereum", explorer: "https://etherscan.io/tx/", native: "ETH", whaleEth: 20 },
+  "AVAX-USD": { rpcs: ["https://api.avax.network/ext/bc/C/rpc"], name: "Avalanche", explorer: "https://snowtrace.io/tx/", native: "AVAX", whaleEth: 2000 },
+  "ARB-USD": { rpcs: ["https://arb1.arbitrum.io/rpc"], name: "Arbitrum", explorer: "https://arbiscan.io/tx/", native: "ARB", whaleEth: 50000 },
+  "OP-USD": { rpcs: ["https://mainnet.optimism.io"], name: "Optimism", explorer: "https://optimistic.etherscan.io/tx/", native: "OP", whaleEth: 50000 },
+};
+const ROUTERS = {
+  "0x66a9893cc07d91d95644aedd05d03f95e1dba8af": "Uniswap Universal",
+  "0xe592427a0aece92de3edee1f18e0157c05861564": "Uniswap V3",
+  "0x7a250d5630b4cf539739df2c5dacb4c659f2488d": "Uniswap V2",
+  "0x1111111254eeb25477b68fb85ed929f73a960582": "1inch",
+  "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": "Uniswap V3 R2",
+};
 
-    // SOL momentum from the chart we already fetched
-    let solChange24h = null, solChange7d = null;
-    try {
-      const cs = solChart ? (solChart.timestamp || []) : [];
-      const cls = solChart ? (solChart.indicators?.quote?.[0]?.close || []) : [];
-      const lastC = cls[cls.length - 1];
-      if (lastC && cls.length > 2) solChange24h = lastC / cls[cls.length - 2] - 1;
-      if (lastC && cls.length > 8) solChange7d = lastC / cls[cls.length - 8] - 1;
-    } catch {}
+async function evmDecoder(symbol) {
+  const cfg = EVM[symbol];
+  const call = async (method, params) => {
+    let last;
+    for (const url of cfg.rpcs) {
+      try {
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+        const jj = await r.json();
+        if (jj.error) throw new Error(jj.error.message);
+        return jj.result;
+      } catch (e) { last = e; }
+    }
+    throw last;
+  };
+  const hex2n = (h) => parseInt(h, 16);
+  const [bn, price] = await Promise.all([call("eth_blockNumber", []), priceOf(symbol)]);
+  const block = await call("eth_getBlockByNumber", [bn, true]);
+  if (!block?.transactions) throw new Error("no block data");
+  const whales = [];
+  const routerCounts = {};
+  let totalTx = block.transactions.length;
+  let valueMoved = 0;
+  for (const tx of block.transactions) {
+    const val = hex2n(tx.value) / 1e18;
+    valueMoved += val;
+    const to = (tx.to || "").toLowerCase();
+    if (ROUTERS[to]) routerCounts[ROUTERS[to]] = (routerCounts[ROUTERS[to]] || 0) + 1;
+    if (val >= cfg.whaleEth) whales.push({ sym: cfg.native, amt: val, usd: val * (price || 0), from: tx.from, to: tx.to || "contract ✦", link: `${cfg.explorer}${tx.hash}` });
+  }
+  whales.sort((a, b) => b.usd - a.usd);
+  const baseFee = block.baseFeePerGas ? hex2n(block.baseFeePerGas) / 1e9 : null;
+  const gasUsedPct = Math.round((hex2n(block.gasUsed) / hex2n(block.gasLimit)) * 100);
+  const gaugeVal = baseFee == null ? 50 : Math.max(2, Math.min(98, Math.round(100 - Math.min(100, (baseFee / 60) * 100))));
+  const gaugeLabel = baseFee == null ? "n/a" : baseFee < 5 ? "Cheap gas" : baseFee < 20 ? "Normal gas" : baseFee < 50 ? "Busy gas" : "Expensive gas";
+  const routerTotal = Object.values(routerCounts).reduce((s, v) => s + v, 0);
+  const activity = Object.entries(routerCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  const cards = [];
+  if (baseFee != null && baseFee < 5) cards.push({ icon: "🟢", cls: "buy", title: `${cfg.name} gas is cheap — action window`, text: `Base fee ${baseFee.toFixed(1)} gwei. Cheap gas is when swaps/transfers cost cents — a good window to act if you were waiting.`, trade: symbol, side: "buy" });
+  else if (baseFee != null && baseFee > 40) cards.push({ icon: "⚠️", cls: "warn", title: "Gas is expensive", text: `Base fee ${baseFee.toFixed(1)} gwei — actions cost dollars. Wait for a quieter window (often weekends/early UTC hours).` });
+  if (routerTotal > totalTx * 0.05) cards.push({ icon: "⚡", cls: "mid", title: "DEX routers are hot", text: `${routerTotal} router calls in this block — heavy DEX activity often means something is moving. Check the news tab.` });
+  if (whales[0]?.usd >= 300000) cards.push({ icon: "🐋", cls: "warn", title: `Whale moved $${Math.round(whales[0].usd / 1000)}k`, text: "Large native transfer just confirmed — check the receiver on the explorer before reacting." });
+  return {
+    chain: "EVM", symbol, price, chainName: cfg.name,
+    stats: [
+      { label: "block txs", value: totalTx.toLocaleString() },
+      { label: "base fee", value: baseFee != null ? `${baseFee.toFixed(1)} gwei` : "—", warn: baseFee > 40 },
+      { label: "gas used", value: `${gasUsedPct}%`, warn: gasUsedPct > 85 },
+      { label: `${cfg.native} moved`, value: `${valueMoved.toLocaleString("en-US", { maximumFractionDigits: 0 })}` },
+      { label: "router calls", value: String(routerTotal) },
+      { label: cfg.native, value: price != null ? `$${price.toLocaleString()}` : "—" },
+    ],
+    gauge: { value: gaugeVal, label: gaugeLabel, low: "expensive", high: "cheap", kind: "gas" },
+    flows: whales.slice(0, 8),
+    activity: activity.length ? activity : [{ name: "no router calls in block", count: 0 }],
+    activityLabel: "DEX routers in block",
+    cards,
+    fetchedAt: Date.now(),
+  };
+}
 
-    // flow bias: stablecoin share vs SOL share into DEX flow, adjusted by momentum & congestion
-    const stableVolUsd = volUsd.USDC + volUsd.USDT;
-    const totalFlow = stableVolUsd + volUsd.wSOL;
-    let buyBias = 50;
-    if (totalFlow > 0) buyBias += ((stableVolUsd / totalFlow) - 0.5) * 60;
-    if (solChange24h != null) buyBias += solChange24h > 0 ? 8 : -8;
-    if (totalTx && fails / totalTx > 0.18) buyBias = 50 + (buyBias - 50) * 0.6; // congestion = uncertainty
-    buyBias = Math.max(2, Math.min(98, Math.round(buyBias)));
-    const biasLabel = buyBias >= 65 ? "Strong buy flow" : buyBias >= 55 ? "Buy lean" : buyBias > 45 ? "Balanced" : buyBias > 35 ? "Sell lean" : "Strong sell flow";
+export const SHRED_CHAINS = { ...PRICE_SYM };
 
-    res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=15");
-    res.status(200).json({
-      slot, solPrice, tps: +tps.toFixed(0), slotMs: +slotMs.toFixed(0),
-      blocksScanned: blocks.length, slotsRange: blocks.length ? [slot - blocks.length - 1, slot - 2] : null,
-      totalTx, failRate: totalTx ? +(fails / totalTx).toFixed(3) : null,
-      dexCalls: programs.reduce((s, p) => s + p.count, 0),
-      flows: flows.slice(0, 10),
-      programs, volUsd, solChange24h: solChange24h != null ? +solChange24h.toFixed(4) : null, solChange7d: solChange7d != null ? +solChange7d.toFixed(4) : null, buyBias, biasLabel, providers: [...providerStats.values()],
-      fetchedAt: Date.now(),
+export default async function handler(req, res) {
+  const symbol = String(req.query.symbol || req.body?.symbol || "SOL-USD").toUpperCase();
+  try {
+    if (symbol === "BTC-USD" || symbol === "BTC=F") return res.status(200).json(await btcDecoder(symbol));
+    if (EVM[symbol]) return res.status(200).json(await evmDecoder(symbol));
+    // default: Solana engine, normalized into the universal shape
+    const sol = (await import("./shreds-sol.js")).default;
+    let cap;
+    await sol(req, { setHeader() {}, status() { return this; }, json(j) { cap = j; return this; } });
+    if (!cap || cap.error) return res.status(502).json(cap || { error: "SOL feed failed" });
+    const usd = (v) => "$" + Math.round(v).toLocaleString("en-US");
+    const stableVol = cap.volUsd.USDC + cap.volUsd.USDT;
+    const cards = [];
+    if (cap.buyBias >= 58) cards.push({ icon: "🟢", cls: "buy", title: "Flow leans BUY — beginners can dip in", text: `More stablecoins than SOL hitting DEXes (${usd(stableVol)} vs ${usd(cap.volUsd.wSOL)}) — buyers pay up. A small DCA buy on SOL fits the flow.`, trade: "SOL-USD", side: "buy" });
+    else if (cap.buyBias <= 42) cards.push({ icon: "🔴", cls: "sell", title: "Flow leans SELL — sit on your hands", text: `SOL hits the DEXes harder than stablecoins (${usd(cap.volUsd.wSOL)} vs ${usd(stableVol)}) — sellers dominate. Wait, or take partial profit.`, trade: "SOL-USD", side: "sell" });
+    else cards.push({ icon: "🟡", cls: "mid", title: "Balanced flow — no edge", text: "No strong direction from flow right now. DCA small if you want exposure.", trade: "SOL-USD", side: null });
+    if (cap.failRate > 0.2) cards.push({ icon: "⚠️", cls: "warn", title: "Chain is congested", text: `${(cap.failRate * 100).toFixed(0)}% of txs failing — market orders will slip. Use LIMIT orders.` });
+    if (cap.flows[0]?.usd >= 50000) cards.push({ icon: "🐋", cls: "warn", title: `Whale just moved ${usd(cap.flows[0].usd)}`, text: "Whale-sized transfer settled — expect possible sharp moves; don't chase candles." });
+    return res.status(200).json({
+      chain: "SOL", symbol: "SOL-USD", price: cap.solPrice, chainName: "Solana",
+      stats: [
+        { label: "TPS", value: cap.tps.toLocaleString() },
+        { label: "slot time", value: `${cap.slotMs}ms` },
+        { label: `tx / ${cap.blocksScanned} slots`, value: cap.totalTx.toLocaleString() },
+        { label: "fail rate", value: `${(cap.failRate * 100).toFixed(1)}%`, warn: cap.failRate > 0.2 },
+        { label: "DEX calls", value: String(cap.dexCalls) },
+        { label: "flow scanned", value: usd(cap.volUsd.wSOL + stableVol) },
+      ],
+      gauge: { value: cap.buyBias, label: cap.biasLabel, low: "sell flow", high: "buy flow", kind: "bias" },
+      flows: cap.flows.map((f) => ({ ...f, link: `https://solscan.io/tx/${f.sig}` })),
+      activity: cap.programs, activityLabel: "DEX programs (multi-slot)",
+      cards, providers: cap.providers || [], fetchedAt: cap.fetchedAt,
     });
   } catch (e) {
-    res.status(502).json({ error: `Shred feed unavailable (${e.message})` });
+    res.status(502).json({ error: `Shred feed unavailable for ${symbol} (${e.message})` });
   }
 }
