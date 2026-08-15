@@ -41,6 +41,7 @@ export default async function handler(req, res) {
         startEquity: Number(portfolio.startEquity) || 0,
         positions: portfolio.positions.slice(0, 100),
         history: portfolio.history.slice(0, 300),
+        orders: (portfolio.orders || []).slice(0, 100),
       };
       await put(KEY(token), JSON.stringify(clean), {
         access: "private",

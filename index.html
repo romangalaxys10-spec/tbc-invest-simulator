@@ -19,6 +19,7 @@
     </div>
     <nav class="view-nav">
       <button id="navSim" class="active">Simulator</button>
+      <button id="navPackages">Packages</button>
       <button id="navPortfolio">Portfolio <span class="badge" id="positionsBadge"></span></button>
     </nav>
     <div class="live-pill">
@@ -98,6 +99,7 @@
               <label><input type="checkbox" data-o="sma50" checked /> SMA50</label>
               <label><input type="checkbox" data-o="sma200" checked /> SMA200</label>
               <label><input type="checkbox" data-o="bb" /> Bollinger</label>
+              <label><input type="checkbox" data-o="waves" checked /> Elliott &amp; Patterns</label>
             </div>
           </div>
           <div class="cd-svg"></div>
@@ -112,6 +114,11 @@
         </div>
       </div>
 
+      <!-- Pattern Lab -->
+      <div class="panel pattern-lab" id="patternLab">
+        <p class="hint">Loading pattern analysis…</p>
+      </div>
+
       <!-- Full analysis -->
       <div class="panel analysis-panel" id="analysisCard">
         <div class="signal-cards" id="signalCards"></div>
@@ -122,6 +129,7 @@
             <button data-a="tech">Technicals</button>
             <button data-a="fund">Fundamentals</button>
             <button data-a="events">Events &amp; Impact</button>
+            <button data-a="waves">Waves &amp; Patterns</button>
             <button data-a="news">News</button>
           </div>
         </div>
@@ -153,7 +161,29 @@
         <h2>Trade history</h2>
         <div id="historyTable"></div>
       </div>
+      <div class="panel">
+        <div class="chart-head">
+          <h2>Pending orders</h2>
+          <span class="muted" style="font-size:11px">limit · stop · auction — auto-executed on every price refresh &amp; hourly scan</span>
+        </div>
+        <div id="ordersTable"></div>
+      </div>
     </section>
+  <!-- ===================== PACKAGES VIEW ===================== -->
+  <section class="content" id="packagesView" style="display:none">
+    <div class="panel">
+      <div class="chart-head">
+        <h2>📦 Investment packages — balanced instrument groups with live entry signals</h2>
+        <button class="btn small" id="packagesRefresh">↻ Refresh signals</button>
+      </div>
+      <p class="hint" style="margin-top:0">
+        Each package groups instruments that balance each other (different asset classes, regions, low average correlation).
+        Entry signals are computed live from price action: trend vs SMA20/50/200, RSI-14 and 3-month momentum.
+        Paper-invest a package to split your amount across all components at live market prices.
+      </p>
+    </div>
+    <div id="packagesGrid" class="packages-grid"></div>
+  </section>
   </main>
 
   <!-- Trade modal -->

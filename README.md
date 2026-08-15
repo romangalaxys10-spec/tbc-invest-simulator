@@ -40,10 +40,14 @@ Seven user turns. One afternoon. **~3,500 lines of vanilla JS. Zero frontend dep
 | 🧑‍💼 | **40+ Wall Street analysts** per large cap | AAPL: 41 analysts, targets, upgrades/downgrades with firms |
 | 📐 | **Technicals computed from raw candles** | 8-signal trend score, RSI-14, MACD, Bollinger %B, ATR, support/resistance |
 | 📅 | **Earnings impact engine** | Beat/in-line/miss scenarios from the stock's *own* last 4–8 earnings reactions |
-| 🧙 | **Morgan Sachs & Warren Bufft signal engines** | Fictional names, transparent formulas, real data — with Bufft quotes |
+| 🧙 | **Morgan Stanley, Goldman Sachs & Warren Bufft desks** | Three real methodology engines (revisions/risk-reward, macro-momentum, Graham value) with price targets + ⚡ Execute buttons |
 | 🕯️ | **Candlestick terminal** | Volume/RSI/MACD panels, hover crosshair, golden-cross & earnings markers |
 | 📰 | **In-app news reader** | Click a headline → read the full article in the app |
 | 💼 | **Multi-user paper trading** | $100k virtual cash, token-based cloud sync (Vercel Blob), works across devices |
+| 📦 | **Investment packages** | 6 balanced groups with live entry signals, avg-correlation balance metric, one-click weighted investing |
+| 🕯️ | **Pattern Lab** | Elliott waves + 17 classical patterns (incl. Cup & Handle, wedges, channels) with entry/stop/target/R:R trade plans, schematics & Bill Williams toolkit |
+| ⚡ | **Full order ticket** | Buy/sell, long/short, limit/stop/auction orders, 2×/5× leverage with liquidations, hourly execution scan |
+| 🔔 | **Hourly market scan** | All 33 instruments scanned for signals & pattern triggers with actionable alerts |
 
 ---
 
@@ -54,7 +58,8 @@ index.html      the whole UI shell
 app.js          simulator engine + glue
 analysis.js     analysis tabs (analysts/tech/fund/events/news)
 chart.js        candlestick terminal + indicator engine
-portfolio.js    paper trading + cloud sync + token UX
+portfolio.js    paper trading engine: market/limit/stop/auction orders,
+                long/short, leverage + liquidations, cloud sync
 instruments.js  the curated TBC universe
 
 api/history.js    candles + live quotes  (Yahoo chart, crumb-free)
@@ -62,7 +67,9 @@ api/analysis.js   fundamentals + analysts + computed technicals (crumb-auth)
 api/news.js       per-instrument news
 api/article.js    in-app article extraction (node:https, 128KB headers)
 api/token.js      user token generation
-api/portfolio.js  private Vercel Blob sync
+api/portfolio.js  private Vercel Blob sync (survives deploys)
+api/packages.js   balanced packages + entry signals + correlation
+api/scan.js       hourly market-wide signal & pattern scan
 ```
 
 **One server-side dependency** (`@vercel/blob`) — everything else is vanilla JS and SVG.

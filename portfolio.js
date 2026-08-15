@@ -17,7 +17,7 @@ let syncTimer = null;
 function load() {
   try {
     const j = JSON.parse(localStorage.getItem(KEY));
-    if (j && Array.isArray(j.positions) && Array.isArray(j.history)) return j;
+    if (j && Array.isArray(j.positions) && Array.isArray(j.history)) return { orders: [], ...j, orders: j.orders || [] };
   } catch {}
   return { cash: START_CASH, positions: [], history: [], startEquity: START_CASH };
 }
@@ -279,7 +279,8 @@ async function positionView(p) {
 }
 
 // ---------- public API ----------
-export async function openTradeModal(sym) {
+export async function openTradeModal(sym, opts = {}) {
+  // opts: { side, orderType, trigger, leverage, source, stopHint, targetHint }
   const overlay = $("tradeModal");
   const body = $("tradeModalBody");
   overlay.style.display = "grid";
@@ -293,72 +294,263 @@ export async function openTradeModal(sym) {
     return;
   }
   const fx = await getFx(q.currency);
-  const maxAmount = Math.floor(pf.cash);
+  const priceUSD = q.price * fx;
+  if (opts.orderType === "auto") {
+    // smart selection: buy above market / sell below market = stop; otherwise limit
+    const t = opts.trigger ?? priceUSD;
+    opts.orderType = opts.side === "sell" ? (t <= priceUSD ? "stop" : "limit") : (t >= priceUSD ? "stop" : "limit");
+  }
+  const S = {
+    side: opts.side === "sell" ? "sell" : "buy",
+    type: ["market", "limit", "stop", "auction"].includes(opts.orderType) ? opts.orderType : "market",
+    trigger: opts.trigger ?? q.price,
+    lev: [1, 2, 5].includes(opts.leverage) ? opts.leverage : 1,
+    source: opts.source || "",
+    stopHint: opts.stopHint ?? null,
+    targetHint: opts.targetHint ?? null,
+  };
+  const heldUnits = pf.positions.find((p) => p.sym === sym)?.units ?? 0;
   const syncRow = () => cloudToken
-    ? `<div class="trade-sync ok">☁ Trades save to your token <code>••••${cloudToken.slice(-4)}</code></div>`
-    : `<div class="trade-sync">🔐 No token linked — trades stay on this device only. <button type="button" class="btn small" id="modalGenToken">Generate my token</button></div>`;
+    ? `<div class="trade-sync ok">☁ Orders save to your token <code>••••${cloudToken.slice(-4)}</code></div>`
+    : `<div class="trade-sync">🔐 No token linked — orders stay on this device only. <button type="button" class="btn small" id="modalGenToken">Generate my token</button></div>`;
+
   body.innerHTML = `
-    <h3>Buy ${sym}</h3>
-    <div class="sub">${q.name} · live ${money(q.price * fx)} (${q.price.toFixed(2)} ${q.currency}, FX ${fx.toFixed(3)})</div>
-    <label>Amount (USD)
-      <input type="number" id="tradeAmount" value="${Math.min(1000, maxAmount)}" min="1" max="${maxAmount}" step="any" />
+    <h3>Order ticket — ${sym}</h3>
+    <div class="sub">${q.name} · live ${money(priceUSD)} (${q.price.toFixed(2)} ${q.currency}, FX ${fx.toFixed(3)})${heldUnits ? ` · holding ${heldUnits.toFixed(4)} units` : ""}</div>
+    ${S.source ? `<div class="signal-context">⚡ Executing: <b>${S.source}</b>${S.stopHint ? ` · stop ref ${money(S.stopHint)}` : ""}${S.targetHint ? ` · target ref ${money(S.targetHint)}` : ""}</div>` : ""}
+    <div class="ticket-grid">
+      <div class="seg" id="sideSeg">
+        <button data-v="buy" class="${S.side === "buy" ? "active" : ""}">Buy / Long</button>
+        <button data-v="sell" class="${S.side === "sell" ? "active sell" : ""}">Sell / Short</button>
+      </div>
+      <div class="seg" id="typeSeg">
+        <button data-v="market" class="${S.type === "market" ? "active" : ""}">Market</button>
+        <button data-v="limit" class="${S.type === "limit" ? "active" : ""}">Limit</button>
+        <button data-v="stop" class="${S.type === "stop" ? "active" : ""}">Stop</button>
+        <button data-v="auction" class="${S.type === "auction" ? "active" : ""}">Auction</button>
+      </div>
+      <label>Amount (USD ${S.side === "buy" ? "margin" : "exposure"})
+        <input type="number" id="tradeAmount" value="1000" min="10" step="any" />
+      </label>
+      <label>Leverage
+        <select id="tradeLev">
+          <option value="1" ${S.lev === 1 ? "selected" : ""}>1× (spot)</option>
+          <option value="2" ${S.lev === 2 ? "selected" : ""}>2× (futures)</option>
+          <option value="5" ${S.lev === 5 ? "selected" : ""}>5× (futures)</option>
+        </select>
+      </label>
+    </div>
+    <label id="triggerWrap" style="display:${S.type === "market" ? "none" : "flex"}">Trigger price (USD)
+      <input type="number" id="tradeTrigger" value="${S.trigger.toFixed(2)}" step="any" />
     </label>
     <div class="summary-box" id="tradeSummary"></div>
     <div id="tradeSyncRow">${syncRow()}</div>
     <div class="modal-actions">
       <button class="btn" id="tradeCancel">Cancel</button>
-      <button class="btn primary" id="tradeConfirm">Buy at market</button>
+      <button class="btn primary" id="tradeConfirm">${S.type === "market" ? "Execute now" : "Place order"}</button>
     </div>`;
 
-  const amountEl = $("tradeAmount");
-  const update = () => {
+  const amountEl = $("tradeAmount"), levEl = $("tradeLev"), trigEl = $("tradeTrigger"), trigWrap = $("triggerWrap");
+  const sideSeg = $("sideSeg"), typeSeg = $("typeSeg");
+
+  sideSeg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.side = b.dataset.v;
+    sideSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    update();
+  });
+  typeSeg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.type = b.dataset.v;
+    typeSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+    trigWrap.style.display = S.type === "market" ? "none" : "flex";
+    $("tradeConfirm").textContent = S.type === "market" ? "Execute now" : "Place order";
+    update();
+  });
+  [amountEl, levEl, trigEl].forEach((el) => el.addEventListener("input", update));
+
+  function update() {
+    S.lev = Number(levEl.value) || 1;
     const amt = Math.max(0, Number(amountEl.value) || 0);
-    const units = amt / (q.price * fx);
-    $("tradeSummary").innerHTML = amt > pf.cash
-      ? `<span class="neg">Insufficient cash — available ${money(pf.cash)}</span>`
-      : `You buy ≈ <b>${units.toFixed(4)}</b> units @ <b>${money(q.price * fx)}</b> → cost <b>${money(amt)}</b>. Cash after: <b>${money(pf.cash - amt)}</b>`;
-    $("tradeConfirm").disabled = amt <= 0 || amt > pf.cash;
-  };
-  amountEl.addEventListener("input", update);
+    const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
+    const units = S.side === "buy" ? (amt * S.lev) / px : amt / px;
+    const liq = S.lev > 1
+      ? (S.side === "buy" ? px * (1 - 1 / S.lev + 0.005) : px * (1 + 1 / S.lev - 0.005))
+      : null;
+    const parts = [`≈ <b>${units.toFixed(4)}</b> units @ <b>${money(px)}</b> · ${S.lev}× leverage`];
+    if (liq) parts.push(`liquidation ≈ <b class="neg">${money(liq)}</b>`);
+    if (S.type === "market") parts.push(`cash after: <b>${money(S.side === "buy" ? pf.cash - amt : pf.cash + amt)}</b>`);
+    if (S.type === "auction") parts.push(`executes at the next hourly auction price`);
+    if (S.type !== "market") parts.push(`order sits until trigger or cancel — auto-saved`);
+    $("tradeSummary").innerHTML = `${amt > (S.side === "buy" ? pf.cash : Infinity) ? `<span class="neg">Insufficient cash — available ${money(pf.cash)}</span><br/>` : ""}${parts.join("<br/>")}`;
+    $("tradeConfirm").disabled = amt <= 0 || (S.side === "buy" && amt > pf.cash);
+  }
   update();
 
-  $("tradeCancel").onclick = closeTradeModal;
   $("modalGenToken")?.addEventListener("click", async () => {
     $("modalGenToken").disabled = true;
     $("modalGenToken").textContent = "Generating…";
     await generateToken();
     $("tradeSyncRow").innerHTML = syncRow();
   });
+
+  $("tradeCancel").onclick = closeTradeModal;
   $("tradeConfirm").onclick = async () => {
     const amt = Number(amountEl.value) || 0;
-    if (amt <= 0 || amt > pf.cash) return;
-    const priceUSD = q.price * fx;
-    const units = amt / priceUSD;
-    buy(sym, q.name, q.currency, units, priceUSD);
-    closeTradeModal();
-    // Push to the user's cloud slot immediately, then show the fill
-    clearTimeout(syncTimer);
-    if (cloudToken) await pushCloud();
-    body.innerHTML = `
-      <h3>✓ Order filled</h3>
-      <div class="sub">${units.toFixed(4)} × ${sym} @ ${money(priceUSD)}</div>
-      <div class="summary-box">
-        Cost <b>${money(amt)}</b> · Cash now <b>${money(pf.cash)}</b>
-        ${cloudToken
-          ? `<br/>☁ Saved to cloud token <code>••••${cloudToken.slice(-4)}</code> — paste it on any device to continue`
-          : `<br/>📱 Saved on this device only — link a token in Portfolio to keep trades forever`}
-      </div>
-      <div class="modal-actions">
-        <button class="btn" id="fillDone">Done</button>
-        <button class="btn primary" id="fillView">View portfolio</button>
-      </div>`;
-    overlay.style.display = "grid";
-    $("fillDone").onclick = closeTradeModal;
-    $("fillView").onclick = () => {
-      closeTradeModal();
-      window.dispatchEvent(new CustomEvent("show-portfolio"));
-    };
+    if (amt <= 0) return;
+    if (S.type === "market") {
+      if (S.side === "buy" && amt > pf.cash) return;
+      executeAtMarket(sym, q.name, q.currency, amt, priceUSD, S.side, S.lev, S.source);
+      showFill(body, overlay, {
+        sym, side: S.side, usd: amt, priceUSD,
+        units: S.side === "buy" ? (amt * S.lev) / priceUSD : amt / priceUSD,
+        lev: S.lev, source: S.source,
+        liq: S.lev > 1 ? (S.side === "buy" ? priceUSD * (1 - 1 / S.lev + 0.005) : priceUSD * (1 + 1 / S.lev - 0.005)) : null,
+      });
+    } else {
+      pf.orders = pf.orders || [];
+      pf.orders.push({
+        id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+        sym, name: q.name, ccy: q.currency, side: S.side, type: S.type,
+        usd: amt, trigger: Number(trigEl.value) || priceUSD, lev: S.lev,
+        source: S.source || null, created: Date.now(),
+      });
+      save();
+      renderPortfolio();
+      showOrderPlaced(body, overlay, { sym, ...S });
+    }
   };
+}
+
+function showFill(body, overlay, f) {
+  clearTimeout(syncTimer);
+  const finish = async () => { if (cloudToken) await pushCloud(); };
+  finish();
+  body.innerHTML = `
+    <h3>✓ ${f.side === "buy" ? "Order filled" : "Order filled (sell)"}</h3>
+    <div class="sub">${f.units.toFixed(4)} × ${f.sym} @ ${money(f.priceUSD)}${f.lev > 1 ? ` · ${f.lev}× leverage` : ""}</div>
+    <div class="summary-box">
+      ${f.side === "buy" ? "Margin/cost" : "Exposure"} <b>${money(f.usd)}</b> · Cash now <b>${money(pf.cash)}</b>
+      ${f.liq ? `<br/>⚠ Liquidation price <b>${money(f.liq)}</b>` : ""}
+      ${f.source ? `<br/>⚡ From signal: ${f.source}` : ""}
+      <br/>${cloudToken ? `☁ Saved to token <code>••••${cloudToken.slice(-4)}</code>` : `📱 Saved locally — link a token to keep it forever`}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="fillDone">Done</button>
+      <button class="btn primary" id="fillView">View portfolio</button>
+    </div>`;
+  overlay.style.display = "grid";
+  $("fillDone").onclick = closeTradeModal;
+  $("fillView").onclick = () => { closeTradeModal(); window.dispatchEvent(new CustomEvent("show-portfolio")); };
+}
+
+function showOrderPlaced(body, overlay, o) {
+  body.innerHTML = `
+    <h3>⏳ Order placed</h3>
+    <div class="sub">${o.side === "buy" ? "Buy" : "Sell"} ${o.sym} · ${o.type} @ ${money(o.trigger)} · ${o.lev}×</div>
+    <div class="summary-box">
+      The order sits in your portfolio until its trigger fires (checked on every price refresh and each hourly scan),
+      or until you cancel it. ${o.type === "auction" ? "Auction orders execute at the next hourly auction price." : ""}
+      ${cloudToken ? `<br/>☁ Saved to token <code>••••${cloudToken.slice(-4)}</code>` : `<br/>📱 Saved locally — link a token to keep it forever`}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="fillDone">Done</button>
+      <button class="btn primary" id="fillView">View orders</button>
+    </div>`;
+  overlay.style.display = "grid";
+  $("fillDone").onclick = closeTradeModal;
+  $("fillView").onclick = () => { closeTradeModal(); window.dispatchEvent(new CustomEvent("show-portfolio")); };
+}
+
+// ---------- execution engine: market / shorts / leverage ----------
+function executeAtMarket(sym, name, ccy, usd, priceUSD, side, lev, source) {
+  const id = crypto.randomUUID?.() || String(Date.now() + Math.random());
+  if (side === "buy") {
+    const units = (usd * lev) / priceUSD;
+    const existing = pf.positions.find((p) => p.sym === sym);
+    if (existing && existing.units > 0) {
+      const totalUnits = existing.units + units;
+      existing.avgCost = (existing.units * existing.avgCost + units * priceUSD) / totalUnits;
+      existing.units = totalUnits;
+      existing.lev = Math.max(existing.lev || 1, lev);
+      existing.liquidation = lev > 1 ? priceUSD * (1 - 1 / lev + 0.005) : existing.liquidation;
+    } else {
+      pf.positions.push({ id, sym, name, ccy, units, avgCost: priceUSD, openedAt: Date.now(), cat: CATALOG.find((i) => i.sym === sym)?.cat || "stock", lev, liquidation: lev > 1 ? priceUSD * (1 - 1 / lev + 0.005) : null });
+    }
+    pf.cash -= usd;
+    pf.history.unshift({ ts: Date.now(), type: "buy", sym, units, priceUSD, amount: usd, ccy, lev, source: source || null });
+  } else {
+    // SELL: close longs first, remainder opens/extends a short (proceeds credited)
+    const pos = pf.positions.find((p) => p.sym === sym);
+    const longUnits = pos && pos.units > 0 ? pos.units : 0;
+    const sellUnits = usd / priceUSD;
+    const closeUnits = Math.min(longUnits, sellUnits);
+    if (closeUnits > 0 && pos) {
+      pf.cash += closeUnits * priceUSD;
+      const realized = closeUnits * (priceUSD - pos.avgCost);
+      pf.history.unshift({ ts: Date.now(), type: "sell", sym, units: closeUnits, priceUSD, amount: closeUnits * priceUSD, realized, ccy, source: source || null });
+      pos.units -= closeUnits;
+      if (pos.units < 1e-9 && sellUnits - closeUnits < 1e-9) pf.positions = pf.positions.filter((p) => p.id !== pos.id);
+    }
+    const shortUnits = sellUnits - closeUnits;
+    if (shortUnits > 1e-9) {
+      const shortProceeds = shortUnits * priceUSD;
+      pf.cash += shortProceeds;
+      const existing = pf.positions.find((p) => p.sym === sym && p.units < 0);
+      const liq = priceUSD * (1 + 1 / lev - 0.005);
+      if (existing) {
+        const tot = Math.abs(existing.units) + shortUnits;
+        existing.avgCost = (Math.abs(existing.units) * existing.avgCost + shortUnits * priceUSD) / tot;
+        existing.units -= shortUnits;
+        existing.liquidation = liq;
+      } else {
+        pf.positions.push({ id: crypto.randomUUID?.() || id, sym, name, ccy, units: -shortUnits, avgCost: priceUSD, openedAt: Date.now(), cat: CATALOG.find((i) => i.sym === sym)?.cat || "stock", lev, liquidation: liq, short: true });
+      }
+      pf.history.unshift({ ts: Date.now(), type: "short", sym, units: -shortUnits, priceUSD, amount: shortProceeds, ccy, lev, source: source || null });
+    }
+  }
+  pf.history = (pf.history || []).slice(0, 200);
+  save();
+  renderPortfolio();
+}
+
+// ---------- pending order processing + liquidations ----------
+export async function processPendingOrders(auctionTick = false) {
+  if (!pf.orders?.length) return;
+  let changed = false;
+  for (const o of [...pf.orders]) {
+    let q;
+    try { q = await getQuote(o.sym); } catch { continue; }
+    const fx = await getFx(o.ccy).catch(() => 1);
+    const priceUSD = q.price * fx;
+    let fire = false;
+    if (o.type === "auction") fire = auctionTick;
+    else if (o.type === "limit") fire = o.side === "buy" ? priceUSD <= o.trigger : priceUSD >= o.trigger;
+    else if (o.type === "stop") fire = o.side === "buy" ? priceUSD >= o.trigger : priceUSD <= o.trigger;
+    if (!fire) continue;
+    pf.orders = pf.orders.filter((x) => x.id !== o.id);
+    executeAtMarket(o.sym, o.name, o.ccy, o.usd, priceUSD, o.side, o.lev, o.source || `order:${o.type}@${o.trigger}`);
+    changed = true;
+  }
+  if (changed) { save(); renderPortfolio(); }
+}
+
+async function checkLiquidations(views) {
+  for (const v of views) {
+    const p = pf.positions.find((x) => x.id === v.id);
+    if (!p || p.liquidation == null) continue;
+    const crossed = p.units > 0 ? v.priceUSD <= p.liquidation : v.priceUSD >= p.liquidation;
+    if (!crossed) continue;
+    const units = Math.abs(p.units);
+    if (p.units > 0) {
+      pf.cash += units * p.liquidation;
+      pf.history.unshift({ ts: Date.now(), type: "liquidation", sym: p.sym, units, priceUSD: p.liquidation, amount: units * p.liquidation, realized: units * (p.liquidation - p.avgCost), ccy: p.ccy, note: `Liquidated at ${p.liquidation.toFixed(2)} (${p.lev}×)` });
+    } else {
+      pf.cash -= units * p.liquidation;
+      pf.history.unshift({ ts: Date.now(), type: "liquidation", sym: p.sym, units, priceUSD: p.liquidation, amount: units * p.liquidation, realized: units * (p.avgCost - p.liquidation), ccy: p.ccy, note: `Short liquidated at ${p.liquidation.toFixed(2)} (${p.lev}×)` });
+    }
+    pf.positions = pf.positions.filter((x) => x.id !== p.id);
+  }
 }
 
 export function closeTradeModal() {
@@ -380,6 +572,45 @@ function buy(sym, name, ccy, units, priceUSD) {
   pf.history = pf.history.slice(0, 100);
   save();
   renderPortfolio();
+}
+
+// ---------- package investing (multi-instrument buy at live prices) ----------
+export function getCash() {
+  return pf.cash;
+}
+
+export async function investPackage(pkg, totalUSD) {
+  const results = [];
+  if (totalUSD <= 0) return { summary: `<span class="neg">Enter an amount first.</span>` };
+  for (const c of pkg.components) {
+    if (c.error) { results.push({ sym: c.sym, skipped: "price unavailable" }); continue; }
+    const usd = totalUSD * c.w;
+    if (usd > pf.cash) { results.push({ sym: c.sym, skipped: "insufficient cash" }); continue; }
+    try {
+      const q = await getQuote(c.sym);
+      const fx = await getFx(q.currency);
+      const priceUSD = q.price * fx;
+      const units = usd / priceUSD;
+      buy(c.sym, q.name, q.currency, units, priceUSD);
+      results.push({ sym: c.sym, units, priceUSD, usd });
+    } catch (e) {
+      results.push({ sym: c.sym, skipped: e.message });
+    }
+  }
+  renderPortfolio();
+  const lines = results.map((r) =>
+    r.skipped
+      ? `<span class="neg">✗ ${r.sym} — ${r.skipped}</span>`
+      : `<span class="pos">✓ ${r.sym} — ${r.units.toFixed(4)} units @ ${money(r.priceUSD)} (${money(r.usd)})</span>`
+  );
+  const spent = results.filter((r) => !r.skipped).reduce((s, r) => s + r.usd, 0);
+  const synced = cloudToken
+    ? `<br/>☁ All trades saved to your token <code>••••${cloudToken.slice(-4)}</code>`
+    : `<br/>📱 Saved locally — link a token to keep trades forever`;
+  return {
+    results,
+    summary: `<b>${results.filter((r) => !r.skipped).length}/${pkg.components.length} filled</b> · ${money(spent)} invested${synced}<br/>${lines.join("<br/>")}`,
+  };
 }
 
 async function sellPosition(id, portion = 1) {
@@ -410,14 +641,20 @@ export async function renderPortfolio() {
   const badge = $("positionsBadge");
   badge.textContent = pf.positions.length || "";
 
+  await processPendingOrders(false);
   const views = await Promise.all(pf.positions.map(positionView).map((p) => p.catch(() => null)));
-  const ok = views.filter(Boolean);
+  let ok = views.filter(Boolean);
+  await checkLiquidations(ok);
+  if (pf.positions.length !== ok.length) {
+    const views2 = await Promise.all(pf.positions.map(positionView).map((p) => p.catch(() => null)));
+    ok = views2.filter(Boolean);
+  }
   const invested = ok.reduce((s, v) => s + v.value, 0);
   const equity = pf.cash + invested;
   const totalPl = equity - pf.startEquity;
   const unrealized = ok.reduce((s, v) => s + v.pl, 0);
   const dayPl = ok.reduce((s, v) => s + v.dayPl, 0);
-  const realized = pf.history.filter((h) => h.type === "sell").reduce((s, h) => s + (h.realized || 0), 0);
+  const realized = pf.history.filter((h) => h.type === "sell" || h.type === "liquidation").reduce((s, h) => s + (h.realized || 0), 0);
 
   summary.innerHTML = `
     <div class="pos-card"><div class="k">Equity</div><div class="v">${money(equity)}</div><div class="s ${cls(totalPl)}">${pct(totalPl / pf.startEquity)} all-time</div></div>
@@ -438,7 +675,7 @@ export async function renderPortfolio() {
         if (!v) return `<tr><td>${p.sym}</td><td colspan="7" class="muted">price unavailable</td></tr>`;
         return `<tr>
           <td><b>${p.sym}</b><br><span class="muted" style="font-family:Inter;font-size:11px">${p.name}</span></td>
-          <td>${v.units.toFixed(4)}</td>
+          <td>${v.units.toFixed(4)}${v.lev > 1 || v.short ? ` <span class="chip ${v.short ? "bad" : "warn"}">${v.short ? "SHORT" : v.lev + "×"}</span>` : ""}${v.liquidation ? `<br><span class="muted" style="font-size:10px">liq ${money(v.liquidation)}</span>` : ""}</td>
           <td>${money(v.avgCost)}</td>
           <td>${money(v.priceUSD)}<br><span class="muted" style="font-size:10.5px">${v.price.toFixed(2)} ${v.ccy}</span></td>
           <td>${money(v.value)}</td>
@@ -455,6 +692,31 @@ export async function renderPortfolio() {
     table.querySelectorAll("[data-sell50]").forEach((b) => (b.onclick = () => sellPosition(b.dataset.sell50, 0.5)));
   }
 
+  const ordersBox = document.getElementById("ordersTable");
+  if (ordersBox) {
+    if (!pf.orders?.length) {
+      ordersBox.innerHTML = `<div class="empty">No pending orders. Use a signal's ⚡ Execute button or the order ticket to place limit, stop or auction orders.</div>`;
+    } else {
+      ordersBox.innerHTML = `<table class="table">
+        <tr><th>Placed</th><th>Instrument</th><th>Order</th><th>Trigger</th><th>Amount</th><th>Source</th><th></th></tr>
+        ${pf.orders.map((o) => `<tr>
+          <td>${dstr(o.created)}</td>
+          <td><b>${o.sym}</b></td>
+          <td>${o.side === "buy" ? '<span class="chip good">BUY' : '<span class="chip bad">SELL'}${o.lev > 1 ? ` ${o.lev}×` : ""}</span> <span class="chip neutral">${o.type}</span></td>
+          <td>${o.type === "auction" ? "next hourly" : money(o.trigger)}</td>
+          <td>${money(o.usd)}</td>
+          <td class="muted" style="font-family:Inter;font-size:11px">${o.source || "manual"}</td>
+          <td style="text-align:right"><button class="btn small danger" data-cancel="${o.id}">Cancel</button></td>
+        </tr>`).join("")}
+      </table>`;
+      ordersBox.querySelectorAll("[data-cancel]").forEach((b) => (b.onclick = () => {
+        pf.orders = pf.orders.filter((x) => x.id !== b.dataset.cancel);
+        save();
+        renderPortfolio();
+      }));
+    }
+  }
+
   const hist = $("historyTable");
   if (!pf.history.length) {
     hist.innerHTML = `<div class="empty">No trades yet.</div>`;
@@ -463,7 +725,7 @@ export async function renderPortfolio() {
       <tr><th>Date</th><th>Type</th><th>Instrument</th><th>Units</th><th>Price (USD)</th><th>Amount</th><th>Realized P/L</th></tr>
       ${pf.history.map((h) => `<tr>
         <td>${dstr(h.ts)}</td>
-        <td>${h.type === "buy" ? '<span class="chip good">BUY</span>' : '<span class="chip bad">SELL</span>'}</td>
+        <td>${h.type === "buy" ? '<span class="chip good">BUY</span>' : h.type === "short" ? '<span class="chip bad">SHORT</span>' : h.type === "liquidation" ? '<span class="chip bad">LIQ</span>' : '<span class="chip bad">SELL</span>'}</td>
         <td><b>${h.sym}</b></td>
         <td>${h.units.toFixed(4)}</td>
         <td>${money(h.priceUSD)}</td>
@@ -486,11 +748,31 @@ export function initPortfolio(switchToSimulator) {
   };
   $("portfolioReset").onclick = () => {
     if (!confirm("Reset the virtual account to $100,000 cash and delete all trades?")) return;
-    pf = { cash: START_CASH, positions: [], history: [], startEquity: START_CASH };
+    pf = { cash: START_CASH, positions: [], history: [], orders: [], startEquity: START_CASH };
     save();
     renderPortfolio();
   };
   renderCloudPanel();
   renderPortfolio();
+  // auto-sync: pull the cloud copy on load so updates/deployments never lose trades
+  if (cloudToken) pullFromCloud();
+  // hourly tick: auction executions + order triggers even when idle
+  setInterval(async () => {
+    await processPendingOrders(true);
+    if ($("portfolioView").style.display !== "none") renderPortfolio();
+  }, 60 * 60 * 1000);
   setInterval(() => { if ($("portfolioView").style.display !== "none") renderPortfolio(); }, 60000);
+}
+
+async function pullFromCloud() {
+  try {
+    const r = await fetch(`/api/portfolio?token=${encodeURIComponent(cloudToken)}`);
+    if (!r.ok) return;
+    const j = await r.json();
+    pf = { cash: j.portfolio.cash, startEquity: j.portfolio.startEquity, positions: j.portfolio.positions, history: j.portfolio.history, orders: j.portfolio.orders || [] };
+    localStorage.setItem(KEY, JSON.stringify(pf));
+    lastSync = Date.now();
+    renderCloudPanel();
+    renderPortfolio();
+  } catch {}
 }

@@ -242,8 +242,47 @@ body {
 
 /* ---------- portfolio ---------- */
 
+/* ---------- packages ---------- */
+.pattern-lab { display: flex; flex-direction: column; gap: 14px; }
+.pattern-lab h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-2); }
+.pat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.pat-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 15px 16px; display: flex; flex-direction: column; gap: 10px; }
+.pat-card.bullish { border-color: rgba(52,211,153,.3); }
+.pat-card.bearish { border-color: rgba(248,113,113,.3); }
+.pat-card.williams { border-color: rgba(139,92,246,.35); }
+.pat-head { display: flex; gap: 14px; align-items: center; }
+.pat-schema { width: 130px; height: 64px; flex-shrink: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.pat-name { font-size: 15.5px; font-weight: 800; }
+.pat-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.pat-explain { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.pat-explain b { color: var(--text); }
+.pat-live { font-size: 11.5px; font-family: var(--mono); background: var(--panel); border: 1px dashed var(--line); border-radius: 9px; padding: 7px 10px; }
+.pat-plan th { width: 45%; font-size: 10px; }
+.pat-plan td { font-size: 12.5px; }
+.pat-entry { color: var(--accent-2); font-weight: 700; }
+.pat-stop { color: var(--down); }
+.pat-t1 { color: var(--up); font-weight: 700; }
+.pat-t2 { color: var(--up); }
+.packages-grid { display: flex; flex-direction: column; gap: 20px; }
+.pkg-card { display: flex; flex-direction: column; gap: 12px; }
+.pkg-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.pkg-head h3 { margin: 0; font-size: 18px; }
+.pkg-risk { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 3px 10px; border-radius: 999px; }
+.pkg-risk.low { background: rgba(52,211,153,.12); color: var(--up); }
+.pkg-risk.mid { background: rgba(251,191,36,.1); color: #fbbf24; }
+.pkg-risk.high { background: rgba(248,113,113,.12); color: var(--down); }
+.pkg-thesis { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+.pkg-balance { display: flex; gap: 8px; flex-wrap: wrap; }
+.pkg-score { text-align: right; }
+.pkg-score-num { font-size: 26px; font-weight: 800; font-family: var(--mono); color: var(--accent-2); }
+.pkg-score-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.pkg-invest { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 13px; }
+.pkg-invest label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--muted); font-weight: 600; }
+.pkg-invest input { padding: 8px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); width: 130px; color-scheme: dark; }
+.pkg-result { display: none; font-size: 12.5px; line-height: 1.8; background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 11px 14px; font-family: var(--mono); }
+
 /* ---------- guru signals ---------- */
-.signal-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+.signal-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
 .guru-card {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 15px;
   padding: 15px 16px; position: relative; overflow: hidden;
@@ -275,9 +314,26 @@ body {
 .guru-meter { height: 7px; background: rgba(42,33,64,.6); border-radius: 5px; overflow: hidden; }
 .guru-meter > div { height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 5px; }
 .guru-sub { font-size: 11px; color: var(--muted); margin: 7px 0 9px; line-height: 1.45; }
+.guru-target { font-size: 12px; font-family: var(--mono); background: var(--panel); border: 1px dashed var(--accent); border-radius: 9px; padding: 7px 10px; margin-bottom: 9px; }
+.guru-avatar.gs { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
 .guru-card .signal-list { grid-template-columns: 1fr; margin-top: 4px; }
 .guru-card .signal-list li { justify-content: flex-start; gap: 7px; }
 .guru-quote { font-size: 11.5px; font-style: italic; color: var(--accent-2); margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 9px; }
+.guru-exec { margin-top: 10px; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.signal-context { background: rgba(139,92,246,.1); border: 1px solid rgba(139,92,246,.35); border-radius: 10px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 12px; line-height: 1.5; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ticket-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.ticket-grid input, .ticket-grid select {
+  padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font-size: 13.5px; width: 100%; color-scheme: dark;
+}
+label[for="tradeTrigger"], #triggerWrap { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); font-weight: 600; margin: 12px 0 0; }
+#triggerWrap input { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 13.5px; color-scheme: dark; }
+.seg { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 4px; }
+.seg button { flex: 1; border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 12px; padding: 8px 4px; border-radius: 8px; cursor: pointer; }
+.seg button.active { background: var(--accent); color: white; }
+.seg button.active.sell { background: var(--down); }
+.pat-exec { width: 100%; }
 
 /* ---------- candlestick chart ---------- */
 .chart-mode-tabs { display: flex; gap: 5px; }

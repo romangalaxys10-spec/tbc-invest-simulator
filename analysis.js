@@ -1,4 +1,7 @@
 // Renders full instrument analysis: analysts, technicals, fundamentals, events.
+import { store } from "./store.js";
+import { analyzeWaves } from "./waves.js";
+import { openTradeModal } from "./portfolio.js";
 
 const $ = (id) => document.getElementById(id);
 const fmtPct = (v, d = 2) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(d)}%`);
@@ -52,7 +55,7 @@ function renderAnalysis() {
   const tabs = $("analysisTabs");
   tabs.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.a === analysisTab));
   const body = $("analysisBody");
-  const views = { analysts: viewAnalysts, tech: viewTech, fund: viewFund, events: viewEvents, news: viewNews };
+  const views = { analysts: viewAnalysts, tech: viewTech, fund: viewFund, events: viewEvents, waves: viewWaves, news: viewNews };
   const signalWrap = $("signalCards");
   if (signalWrap) signalWrap.innerHTML = renderSignals(d);
   body.innerHTML = (views[analysisTab] || viewAnalysts)(d);
@@ -63,10 +66,11 @@ function renderAnalysis() {
 function renderSignals(d) {
   const s = d.signals;
   if (!s) return "";
-  return [s.morganSachs, s.warrenBufft].map((g) => `
+  const gurus = [s.morganStanley || s.morganSachs, s.goldmanSachs, s.warrenBufft].filter(Boolean);
+  return gurus.map((g) => `
     <div class="guru-card ${g.cls}">
       <div class="guru-top">
-        <div class="guru-avatar ${g.cls === "buy" ? "ms" : g.cls === "hold" ? "wb" : "rx"}">${g.name.split(" ").map((w) => w[0]).join("")}</div>
+        <div class="guru-avatar ${g.name.includes("Morgan") ? "ms" : g.name.includes("Goldman") ? "gs" : g.name.includes("Bufft") ? "wb" : "rx"}">${g.name.split(" ").map((w) => w[0]).join("")}</div>
         <div class="guru-id">
           <div class="guru-name">${g.name}</div>
           <div class="guru-desk">${g.desk}</div>
@@ -75,11 +79,29 @@ function renderSignals(d) {
       </div>
       <div class="guru-meter"><div style="width:${g.score}%"></div></div>
       <div class="guru-sub"><b>${g.score}/100</b> conviction · ${g.note}</div>
+      ${g.target != null ? `<div class="guru-target">🎯 Target ${money(g.target, d.currency)} <span class="${cls(g.target / d.price - 1)}">(${fmtPct(g.target / d.price - 1)})</span></div>` : `<div class="guru-target muted">🎯 no price target (methodology n/a here)</div>`}
       <ul class="signal-list">
         ${g.factors.map((f) => `<li><i class="ic ${f.ok ? "ok" : "no"}">${f.ok ? "✓" : "✗"}</i>${f.label} <span class="muted" style="margin-left:auto;font-size:11px">${f.detail}</span></li>`).join("")}
       </ul>
       ${g.quote ? `<div class="guru-quote">${g.quote}</div>` : ""}
+      <div class="guru-exec">
+        <button class="btn small primary exec-btn" data-sym="${d.symbol}" data-side="${g.cls === "sell" ? "sell" : "buy"}" data-src="${g.name}: ${g.verdict}" data-lev="${g.name.includes("Goldman") ? 2 : 1}">
+          ⚡ Execute ${g.cls === "sell" ? "SELL" : "BUY"}
+        </button>
+        ${g.target != null ? `<span class="muted" style="font-size:10.5px">desk target ${money(g.target, d.currency)}</span>` : ""}
+      </div>
     </div>`).join("");
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".exec-btn").forEach((b) => {
+      b.onclick = () =>
+        openTradeModal(b.dataset.sym, {
+          side: b.dataset.side,
+          orderType: "market",
+          leverage: Number(b.dataset.lev),
+          source: b.dataset.src,
+        });
+    });
+  });
 }
 
 // ---------- analysts ----------
@@ -295,6 +317,41 @@ export function initAnalysis() {
 }
 
 // ---------- news ----------
+// ---------- Elliott waves & patterns ----------
+function viewWaves() {
+  const w = analyzeWaves(store.candles);
+  if (!w) return `<h3>Elliott Waves &amp; Patterns</h3><p class="lead">Not enough price history loaded yet — select an instrument on the Simulator tab first, then come back.</p>`;
+
+  const el = w.elliott;
+  const elCard = el ? `
+    <div class="event-card">
+      <h3>Elliott count — ${el.phase}</h3>
+      <p class="lead">${el.context} · currently in <b style="color:var(--accent-2)">${el.currentWave}</b>${el.confidence != null ? ` · rules score ${el.confidence}%` : ""}. Wave labels 1–5 are drawn on the candlestick chart (toggle "Elliott &amp; Patterns").</p>
+      ${el.rules.length ? `<ul class="signal-list" style="margin-bottom:10px">${el.rules.map((r) => `<li><i class="ic ${r.ok ? "ok" : "no"}">${r.ok ? "✓" : "✗"}</i>${r.label}</li>`).join("")}</ul>` : ""}
+      ${el.targets.length ? `<div class="scenario-grid" style="grid-template-columns:repeat(${Math.min(2, el.targets.length)},1fr)">
+        ${el.targets.map((t, i) => `<div class="scenario"><div class="t">Projection ${i + 1}</div><div class="m" style="color:var(--accent-2)">${fmtNum(t, 2)}</div><div class="d">${i === 0 ? "conservative" : "full extension"}</div></div>`).join("")}
+      </div><p class="hint" style="margin-top:8px">${el.note}</p>` : ""}
+    </div>` : "";
+
+  const pats = w.patterns;
+  const patSection = pats.length ? `
+    <h3 style="margin-top:18px">Detected patterns — most popular classical setups</h3>
+    <table class="table">
+      <tr><th>Pattern</th><th>Direction</th><th>Status</th><th>Key level</th><th>Target</th><th>Detail</th></tr>
+      ${pats.map((p) => `<tr>
+        <td><b>${p.name}</b><br><span class="muted" style="font-size:10px">conf ${p.conf}</span></td>
+        <td>${chip(p.dir === "bullish" ? "good" : p.dir === "bearish" ? "bad" : "warn", p.dir)}</td>
+        <td>${chip(p.status === "confirmed" ? "good" : "neutral", p.status)}</td>
+        <td>${fmtNum(p.level, 2)}</td>
+        <td>${fmtNum(p.target, 2)}</td>
+        <td style="font-family:Inter;font-size:11.5px">${p.detail}</td>
+      </tr>`).join("")}
+    </table>` : `<h3 style="margin-top:18px">Patterns</h3><p class="lead">No textbook pattern currently active in this window — sometimes the honest signal is "no pattern".</p>`;
+
+  return `${elCard}${patSection}
+  <p class="hint" style="margin-top:10px">Method: fractal swing pivots (4-bar) with 2% minimum zigzag. Elliott labels are a heuristic count validated against the three classic impulse rules — not canonical Elliott. Pattern targets use classical measured-move rules. Educational, not advice.</p>`;
+}
+
 let newsCache = { sym: null, ts: 0, data: null };
 
 async function loadNews(symbol) {

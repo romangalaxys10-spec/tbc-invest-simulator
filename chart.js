@@ -1,4 +1,5 @@
 // Candlestick chart with indicator overlays, sub-panels and on-chart signals.
+import { analyzeWaves } from "./waves.js";
 
 const W = 940;
 const PAD = { l: 8, r: 78 };
@@ -6,7 +7,7 @@ const P = { price: [14, 330], vol: [344, 402], rsi: [414, 482], macd: [494, 586]
 const H = 604;
 const UP = "#34d399", DOWN = "#f87171";
 
-const state = { range: 66, overlays: { sma20: true, sma50: true, sma200: true, bb: false }, candles: [], meta: {}, hover: -1 };
+const state = { range: 66, overlays: { sma20: true, sma50: true, sma200: true, bb: false, waves: true }, candles: [], meta: {}, hover: -1, waves: null };
 let els = {};
 
 const fmt = (v, d = 2) => (v == null ? "—" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -184,6 +185,46 @@ function render() {
     return `<g><polygon points="${tri}" fill="${bull ? UP : DOWN}" opacity="0.95"><title>${s.label} — ${s.detail}</title></polygon><circle cx="${cx}" cy="${y}" r="9" fill="transparent"><title>${s.label} — ${s.detail}</title></circle></g>`;
   }).join("");
 
+  // ---- Elliott zigzag + wave labels + pattern lines ----
+  let wavesSvg = "";
+  if (state.overlays.waves && state.waves) {
+    const wz = state.waves;
+    const zzPts = wz.zig.filter((p) => p.i >= start && p.i < start + n).map((p) => `${x(p.i - start).toFixed(1)},${py(p.p).toFixed(1)}`).join(" ");
+    wavesSvg += `<polyline points="${zzPts}" fill="none" stroke="rgba(229,231,235,.55)" stroke-width="1.3" stroke-dasharray="5 4"/>`;
+
+    const el = wz.elliott;
+    if (el) {
+      wavesSvg += el.labels.filter((p) => p.i >= start && p.i < start + n).map((p) => {
+        const cx = x(p.i - start), cy = py(p.p) + (p.t === "H" ? -16 : 16);
+        return `<g><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="rgba(139,92,246,.85)" stroke="#c4b5fd" stroke-width="1"/><text x="${cx.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" font-size="10" font-weight="800" text-anchor="middle" fill="#fff">${p.label}</text><title>Elliott ${p.label} · ${fmt(p.p)} · ${dstr(view[p.i - start]?.t || 0)}</title></g>`;
+      }).join("");
+    }
+
+    const dirColor = { bullish: "#34d399", bearish: "#f87171", neutral: "#fbbf24" };
+    wavesSvg += wz.patterns.filter((pat) => pat.end >= start).map((pat) => {
+      const y = py(pat.level);
+      const x1 = x(Math.max(0, pat.start - start));
+      const col = dirColor[pat.dir] || "#fbbf24";
+      return `<line x1="${x1.toFixed(1)}" x2="${W - PAD.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${col}" stroke-width="1.6" stroke-dasharray="8 5" opacity="0.85"/>
+      <text x="${(W - PAD.r - 4).toFixed(1)}" y="${(y - 5).toFixed(1)}" font-size="10" font-weight="700" text-anchor="end" fill="${col}">${pat.name}${pat.status === "confirmed" ? " ✓" : ""}</text>
+      <title>${pat.name} (${pat.dir}, ${pat.status}) — ${pat.detail}. Level ${fmt(pat.level)}, target ${fmt(pat.target)}</title>`;
+    }).join("");
+
+    // trade plan lines for the highest-priority pattern
+    const top = wz.patterns[0];
+    if (top && top.plan) {
+      const pl = top.plan;
+      const pline = (v, color, label, dash) => {
+        if (v == null) return "";
+        const y = py(v);
+        if (y < pt - 12 || y > pb + 12) return "";
+        return `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${color}" stroke-width="1" stroke-dasharray="${dash}" opacity="0.7"/><text x="${W - PAD.r + 6}" y="${(y + 3.5).toFixed(1)}" font-size="9.5" fill="${color}" font-family="ui-monospace">${label}</text>`;
+      };
+      wavesSvg += pline(pl.entry, "#c4b5fd", "E", "6 4") + pline(pl.stop, "#f87171", "S", "3 4") +
+        pline(pl.t1, "#34d399", "T1", "3 4") + pline(pl.t2, "rgba(52,211,153,.65)", "T2", "2 5");
+    }
+  }
+
   const earn = (meta.earningsDates || []).map((d) => {
     const j = view.findIndex((k) => dstr(k.t) === d.date);
     if (j < 0) return "";
@@ -223,7 +264,7 @@ function render() {
       ${state.overlays.sma20 ? line(ind.s20, "#a78bfa", 1.6) : ""}
       ${state.overlays.sma50 ? line(ind.s50, "#fbbf24", 1.6) : ""}
       ${state.overlays.sma200 ? line(ind.s200, "#60a5fa", 1.6) : ""}
-      ${markers}${earn}
+      ${markers}${wavesSvg}${earn}
       <text x="${PAD.l}" y="${vt - 2}" font-size="10" fill="#6d6486" font-weight="700">VOLUME</text>
       ${volSvg}
       <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${rb + 8}" y2="${rb + 8}" stroke="#2a2140"/>
@@ -309,6 +350,7 @@ export function mountCandleChart(container) {
       sma50: toggles.querySelector('[data-o="sma50"]').checked,
       sma200: toggles.querySelector('[data-o="sma200"]').checked,
       bb: toggles.querySelector('[data-o="bb"]').checked,
+      waves: toggles.querySelector('[data-o="waves"]').checked,
     };
     render();
   });
@@ -318,6 +360,7 @@ export function mountCandleChart(container) {
       state.candles = candles;
       state.meta = meta;
       state.hover = -1;
+      state.waves = analyzeWaves(candles);
       render();
     },
   };

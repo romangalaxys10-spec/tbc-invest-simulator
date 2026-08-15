@@ -162,12 +162,15 @@ const gradeChip = (g) => {
 // ---- special signal engines ----
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-function morganSachsSignal({ technicals, analysts, fundamentals, isFund }) {
+// Morgan Stanley — equity research style: Overweight/EW/UW ratings driven by
+// revisions momentum, risk-reward vs target, valuation and technicals.
+function morganStanleySignal({ technicals, analysts, fundamentals, price, isFund }) {
   const factors = [];
   const ratingMap = { strong_buy: 1, buy: 0.75, hold: 0.5, sell: 0.25, strong_sell: 0 };
   const hasAnalysts = !!analysts.count;
   const trendScore = technicals.trend.score / 100;
   const mom3 = technicals.momentum.m3;
+  let target = null;
 
   let composite;
   if (isFund || !hasAnalysts) {
@@ -183,37 +186,76 @@ function morganSachsSignal({ technicals, analysts, fundamentals, isFund }) {
   } else {
     const ratingS = ratingMap[analysts.rating] ?? 0.5;
     const upsideS = clamp01((analysts.targets.upside ?? 0) / 0.2);
-    const momS = clamp01((mom3 + 0.1) / 0.3);
     const pe = fundamentals.valuation.peTtm;
-    const valS = pe == null ? 0.5 : pe < 15 ? 1 : pe < 30 ? 0.6 : pe < 50 ? 0.3 : 0.1;
+    const peg = fundamentals.valuation.peg;
+    const valS = peg != null ? (peg < 1.5 ? 1 : peg < 2.5 ? 0.6 : 0.25) : pe == null ? 0.5 : pe < 15 ? 1 : pe < 30 ? 0.6 : 0.3;
+    const beta = fundamentals.valuation.beta;
+    const riskS = beta == null ? 0.5 : beta < 0.8 ? 1 : beta < 1.3 ? 0.7 : beta < 1.8 ? 0.4 : 0.15;
     const revs = analysts.actions.slice(0, 5);
     const upCount = revs.filter((a) => a.action === "up").length;
     const downCount = revs.filter((a) => a.action === "down").length;
-    composite = Math.round((ratingS * 0.22 + upsideS * 0.18 + trendScore * 0.3 + momS * 0.15 + valS * 0.15) * 100);
+    composite = Math.round((ratingS * 0.2 + upsideS * 0.2 + (upCount > downCount ? 1 : upCount === downCount ? 0.5 : 0) * 0.2 + trendScore * 0.15 + valS * 0.15 + riskS * 0.1) * 100);
+    target = analysts.targets.mean != null
+      ? analysts.targets.mean * (upCount > downCount ? 1.02 : downCount > upCount ? 0.98 : 1)
+      : null;
     factors.push(
-      { label: `Street consensus (${analysts.count} analysts)`, ok: ratingS >= 0.6, detail: analysts.rating.replace("_", " ") },
-      { label: "Target upside", ok: (analysts.targets.upside ?? 0) > 0, detail: `${((analysts.targets.upside ?? 0) * 100).toFixed(1)}% to mean` },
+      { label: `Consensus (${analysts.count} analysts)`, ok: ratingS >= 0.6, detail: analysts.rating.replace("_", " ") },
+      { label: "Risk-reward vs mean target", ok: (analysts.targets.upside ?? 0) > 0.05, detail: `${((analysts.targets.upside ?? 0) * 100).toFixed(1)}%` },
       { label: "Technical regime", ok: trendScore >= 0.6, detail: `${technicals.trend.label} (${technicals.trend.score}/100)` },
-      { label: "Momentum (3M)", ok: mom3 > 0, detail: `${((mom3 ?? 0) * 100).toFixed(1)}%` },
-      { label: "Valuation", ok: valS >= 0.6, detail: pe == null ? "P/E n/a" : `P/E ${pe.toFixed(1)}` },
-      { label: "Analyst revisions (30d)", ok: upCount > downCount, detail: `${upCount}▲ / ${downCount}▼` },
+      { label: "Valuation vs growth (PEG)", ok: valS >= 0.6, detail: peg != null ? `PEG ${peg.toFixed(2)}` : pe != null ? `P/E ${pe.toFixed(1)}` : "n/a" },
+      { label: "Estimate revisions (30d)", ok: upCount > downCount, detail: `${upCount}▲ / ${downCount}▼ — revisions drive MS targets` },
+      { label: "Risk profile (beta)", ok: riskS >= 0.6, detail: beta != null ? `β ${beta.toFixed(2)}` : "n/a" },
     );
   }
-  const verdict = composite >= 75 ? "STRONG BUY" : composite >= 60 ? "BUY" : composite >= 45 ? "HOLD" : composite >= 30 ? "REDUCE" : "SELL";
-  const cls = composite >= 60 ? "buy" : composite >= 45 ? "hold" : "sell";
+  const verdict = composite >= 70 ? "OVERWEIGHT" : composite >= 50 ? "EQUAL-WEIGHT" : "UNDERWEIGHT";
+  const cls = composite >= 70 ? "buy" : composite >= 50 ? "hold" : "sell";
   return {
-    name: "Morgan Sachs", desk: "Institutional Desk Signal",
-    verdict, cls, score: composite, conviction: composite,
-    factors,
+    name: "Morgan Stanley", desk: "Equity Research Signal",
+    verdict, cls, score: composite, conviction: composite, factors, target,
     note: isFund || !hasAnalysts
-      ? "Fund allocation mode — blends price regime, momentum and risk (no single-stock analyst coverage)."
-      : "Blends Wall Street consensus, analyst revisions, technical regime, momentum and valuation.",
+      ? "Fund allocation mode — regime, momentum and risk (MS research covers single stocks)."
+      : "MS research playbook: estimate revisions, risk-reward vs target, valuation vs growth, risk.",
   };
 }
 
-function warrenBufftSignal({ technicals, fundamentals, analysts, isFund }) {
+// Goldman Sachs — global macro & momentum style: momentum factor, trend regime,
+// growth quality, volatility regime and 52-week positioning.
+function goldmanSachsSignal({ technicals, fundamentals, price, isFund }) {
+  const factors = [];
+  const mom6 = technicals.momentum.m6 ?? 0;
+  const mom1 = technicals.momentum.m1 ?? 0;
+  const momo = clamp01((mom6 - Math.min(mom1, 0) + 0.15) / 0.45); // 6M momentum, penalize recent blowoff
+  const trendScore = technicals.trend.score / 100;
+  const eg = fundamentals.growth.earnings;
+  const growthS = isFund ? 0.5 : eg == null ? 0.5 : eg > 0.15 ? 1 : eg > 0 ? 0.6 : 0.15;
+  const volS = clamp01(1 - (technicals.vol30d - 0.12) / 0.38);
+  const pos52 = technicals.range52w.position;
+  const posS = pos52 > 0.7 ? 1 : pos52 > 0.4 ? 0.65 : 0.3;
+
+  const composite = Math.round((momo * 0.3 + trendScore * 0.2 + growthS * 0.2 + volS * 0.15 + posS * 0.15) * 100);
+  const verdict = composite >= 80 ? "CONVICTION BUY" : composite >= 62 ? "BUY" : composite >= 45 ? "NEUTRAL" : composite <= 25 ? "CONVICTION SELL" : "SELL";
+  const cls = composite >= 62 ? "buy" : composite >= 45 ? "hold" : "sell";
+  const target = price * (1 + 0.5 * Math.max(-0.4, Math.min(0.4, mom6)));
+
+  factors.push(
+    { label: "Momentum (6M factor)", ok: momo >= 0.55, detail: `${(mom6 * 100).toFixed(1)}% 6M · ${(mom1 * 100).toFixed(1)}% 1M` },
+    { label: "Trend regime", ok: trendScore >= 0.6, detail: `${technicals.trend.label} (${technicals.trend.score}/100)` },
+    { label: "Earnings growth", ok: growthS >= 0.6, detail: isFund ? "n/a for funds" : eg != null ? `${(eg * 100).toFixed(1)}%` : "n/a" },
+    { label: "Volatility regime", ok: volS >= 0.5, detail: `${(technicals.vol30d * 100).toFixed(1)}% 30d ann.` },
+    { label: "52-week positioning", ok: posS >= 0.65, detail: `${(pos52 * 100).toFixed(0)}% of range` },
+  );
+
+  return {
+    name: "Goldman Sachs", desk: "Global Macro & Momentum Signal",
+    verdict, cls, score: composite, conviction: composite, factors, target,
+    note: "GS playbook: momentum with blowoff penalty, trend regime, growth quality, vol-targeted risk, range positioning. Target = 50% decay of 6M momentum.",
+  };
+}
+
+function warrenBufftSignal({ technicals, fundamentals, price: px, isFund }) {
   const factors = [];
   let score;
+  let target = null;
   if (isFund) {
     const fu = { expenseRatio: fundamentals.expenseRatio ?? null };
     // Bufft famously recommends low-cost index funds when he can't find individual value
@@ -242,6 +284,15 @@ function warrenBufftSignal({ technicals, fundamentals, analysts, isFund }) {
        (peg == null ? 0.5 : peg < 1 ? 1 : peg < 2 ? 0.6 : 0.2)) / 2 * 100
     );
     score = Math.round(quality * 0.6 + price * 0.4);
+    // Graham-style fair value: V = EPS × (8.5 + 2g), growth capped at 15
+    const peG = fundamentals.valuation.peTtm;
+    const egG = fundamentals.growth.earnings;
+    if (peG != null && peG > 0 && egG != null) {
+      const eps = px / peG;
+      const g = Math.max(0, Math.min(15, egG * 100));
+      const v = eps * (8.5 + 2 * g);
+      target = Math.max(px * 0.6, Math.min(px * 2, v)); // sanity band ±60%
+    }
     factors.push(
       { label: "ROE (moat proxy)", ok: roe > 0.15, detail: roe != null ? `${(roe * 100).toFixed(1)}%` : "n/a" },
       { label: "Profit margin", ok: margin > 0.15, detail: margin != null ? `${(margin * 100).toFixed(1)}%` : "n/a" },
@@ -262,7 +313,7 @@ function warrenBufftSignal({ technicals, fundamentals, analysts, isFund }) {
   };
   return {
     name: "Warren Bufft", desk: "Value & Quality Signal",
-    verdict, cls, score, conviction: score,
+    verdict, cls, score, conviction: score, target,
     factors,
     quote: quotes[verdict],
     note: isFund
@@ -375,9 +426,10 @@ export default async function handler(req, res) {
       about: fund.legalType,
     } : null,
   };
-  const signalsCtx = { technicals: base.technicals, analysts: base.analysts, fundamentals: base.fundamentals, isFund };
+  const signalsCtx = { technicals: base.technicals, analysts: base.analysts, fundamentals: base.fundamentals, price, isFund };
   base.signals = {
-    morganSachs: morganSachsSignal(signalsCtx),
+    morganStanley: morganStanleySignal(signalsCtx),
+    goldmanSachs: goldmanSachsSignal(signalsCtx),
     warrenBufft: warrenBufftSignal({ ...signalsCtx, fundamentals: { ...base.fundamentals, expenseRatio: base.fund?.expenseRatio ?? null } }),
   };
   res.status(200).json({ ...base, fetchedAt: Date.now() });

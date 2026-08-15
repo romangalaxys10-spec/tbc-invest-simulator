@@ -2,6 +2,9 @@ import { CATALOG, CATEGORY_LABELS } from "./instruments.js";
 import { loadAnalysis, initAnalysis } from "./analysis.js";
 import { openTradeModal, initPortfolio, renderPortfolio, initTokenBanner } from "./portfolio.js";
 import { mountCandleChart } from "./chart.js";
+import { loadPackages } from "./packages.js";
+import { store } from "./store.js";
+import { initPatternLab } from "./patterns.js";
 
 // ---------- state ----------
 const state = {
@@ -123,6 +126,7 @@ async function selectInstrument(sym) {
   renderSelected();
   els.result.innerHTML = `<p class="hint">Loading ${sym}…</p>`;
   await compute();
+  refreshCandles(sym);
   loadAnalysis(sym);
 }
 
@@ -185,11 +189,6 @@ async function compute() {
     els.result.innerHTML = `<div class="notice">No price data available for ${inst.sym}.</div>`;
     return;
   }
-
-  // update candlestick chart
-  lastCandles = candles;
-  lastChartMeta = { symbol: h.symbol, currency: h.currency };
-  updateCandleChart();
 
   // Resolve entry to the first trading day on/after the chosen date
   let idx = candles.findIndex((c) => c.t >= entryTs - 12 * 3600000);
@@ -381,23 +380,45 @@ els.quickDates.addEventListener("click", (e) => {
   compute();
 });
 
-els.refresh.addEventListener("click", async () => {
+  els.refresh.addEventListener("click", async () => {
   state.quotes = {};
   state.history = {};
+  Object.keys(chartHistCache).forEach((k) => delete chartHistCache[k]);
   setLive(true, "Refreshing…");
   await loadQuotes(true);
   compute();
+  refreshCandles(state.symbol);
 });
 
 // ---------- view switching ----------
 const candleChart = mountCandleChart(document.getElementById("candleWrap"));
 const earningsForChart = (d) =>
   d?.events?.nextEarnings?.impact?.history?.map((h) => ({ date: h.date, move: h.nextDayMove })) || [];
-let lastCandles = null, lastChartMeta = {};
+let lastChartCandles = null, lastChartMeta = {};
+const chartHistCache = {}; // sym -> full 420d history, independent of simulation entry date
 
 function updateCandleChart(extraMeta = {}) {
-  if (!lastCandles) return;
-  candleChart.update(lastCandles, { ...lastChartMeta, ...extraMeta });
+  if (!lastChartCandles) return;
+  candleChart.update(lastChartCandles, { ...lastChartMeta, ...extraMeta });
+}
+
+async function refreshCandles(sym) {
+  try {
+    if (!chartHistCache[sym]) {
+      const p2 = Math.floor(nowTs() / 1000) + 86400;
+      const p1 = p2 - 430 * 86400; // ~280 trading days so the 1Y timeframe works
+      chartHistCache[sym] = await fetchJSON(`/api/history?symbol=${encodeURIComponent(sym)}&period1=${p1}&period2=${p2}`);
+    }
+    const ch = chartHistCache[sym];
+    lastChartCandles = ch.candles;
+    lastChartMeta = { symbol: ch.symbol, currency: ch.currency };
+    store.candles = ch.candles;
+    store.symbol = ch.symbol;
+    updateCandleChart();
+    window.dispatchEvent(new CustomEvent("candles-loaded"));
+  } catch (e) {
+    console.warn("candle history failed:", e.message);
+  }
 }
 
 window.addEventListener("analysis-loaded", (e) => {
@@ -417,16 +438,21 @@ chartMode.addEventListener("click", (e) => {
 });
 
 const navSim = $("navSim"), navPortfolio = $("navPortfolio");
+const navPackages = $("navPackages");
 function showView(which) {
   const sim = which === "sim";
   $("simView").style.display = sim ? "flex" : "none";
-  $("portfolioView").style.display = sim ? "none" : "flex";
+  $("packagesView").style.display = which === "packages" ? "flex" : "none";
+  $("portfolioView").style.display = which === "portfolio" ? "flex" : "none";
   navSim.classList.toggle("active", sim);
-  navPortfolio.classList.toggle("active", !sim);
-  if (!sim) renderPortfolio();
+  navPackages?.classList.toggle("active", which === "packages");
+  navPortfolio.classList.toggle("active", which === "portfolio");
+  if (which === "portfolio") renderPortfolio();
+  if (which === "packages") loadPackages();
 }
 navSim.onclick = () => showView("sim");
 navPortfolio.onclick = () => showView("portfolio");
+navPackages && (navPackages.onclick = () => showView("packages"));
 
 // ---------- init ----------
 (function init() {
@@ -439,4 +465,5 @@ navPortfolio.onclick = () => showView("portfolio");
   initAnalysis();
   initPortfolio();
   initTokenBanner();
+  initPatternLab();
 })();
