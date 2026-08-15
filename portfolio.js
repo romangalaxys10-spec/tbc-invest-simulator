@@ -290,7 +290,8 @@ async function positionView(p) {
   const value = p.units * priceUSD;
   const cost = p.units * p.avgCost;
   const dayPl = p.units * (priceUSD - prevUSD);
-  return { ...p, price: q.price, priceUSD, value, cost, pl: value - cost, plPct: value / cost - 1, dayPl, dayPlPct: prevUSD ? priceUSD / prevUSD - 1 : 0 };
+  const fresh = Date.now() - (p.openedAt || 0) < 5 * 60 * 1000; // just filled
+  return { ...p, fresh, price: q.price, priceUSD, value, cost, pl: value - cost, plPct: value / cost - 1, dayPl: fresh ? null : dayPl, dayPlPct: prevUSD ? priceUSD / prevUSD - 1 : 0 };
 }
 
 // ---------- public API ----------
@@ -456,6 +457,7 @@ function showFill(body, overlay, f) {
       ${f.side === "buy" ? "Margin/cost" : "Exposure"} <b>${money(f.usd)}</b> · Cash now <b>${money(pf.cash)}</b>
       ${f.liq ? `<br/>⚠ Liquidation price <b>${money(f.liq)}</b>` : ""}
       ${f.source ? `<br/>⚡ From signal: ${f.source}` : ""}
+      <br/><span class="muted" style="font-size:11px">P/L since fill starts at $0.00 — the "Day move" column shows today's market move (incl. before your entry), not your profit.</span>
       <br/>${cloudToken ? `☁ Saved to token <code>••••${cloudToken.slice(-4)}</code>` : `📱 Saved locally — link a token to keep it forever`}
     </div>
     <div class="modal-actions">
@@ -676,7 +678,7 @@ export async function renderPortfolio() {
   const equity = pf.cash + invested;
   const totalPl = equity - pf.startEquity;
   const unrealized = ok.reduce((s, v) => s + v.pl, 0);
-  const dayPl = ok.reduce((s, v) => s + v.dayPl, 0);
+  const dayPl = ok.filter((v) => v.dayPl != null).reduce((s, v) => s + v.dayPl, 0);
   const realized = pf.history.filter((h) => h.type === "sell" || h.type === "liquidation").reduce((s, h) => s + (h.realized || 0), 0);
 
   summary.innerHTML = `
@@ -684,7 +686,7 @@ export async function renderPortfolio() {
     <div class="pos-card"><div class="k">Cash</div><div class="v">${money(pf.cash)}</div><div class="s muted">started with ${money(pf.startEquity)}</div></div>
     <div class="pos-card"><div class="k">Invested</div><div class="v">${money(invested)}</div><div class="s muted">${pf.positions.length} position${pf.positions.length === 1 ? "" : "s"}</div></div>
     <div class="pos-card"><div class="k">Unrealized P/L</div><div class="v ${cls(unrealized)}">${money(unrealized)}</div><div class="s ${cls(unrealized)}">open positions</div></div>
-    <div class="pos-card"><div class="k">Today</div><div class="v ${cls(dayPl)}">${money(dayPl)}</div><div class="s ${cls(dayPl)}">vs previous close</div></div>
+    <div class="pos-card"><div class="k">Day move</div><div class="v ${cls(dayPl)}">${money(dayPl)}</div><div class="s ${cls(dayPl)}">market move today</div></div>
     <div class="pos-card"><div class="k">Realized P/L</div><div class="v ${cls(realized)}">${money(realized)}</div><div class="s muted">closed trades</div></div>`;
 
   const table = $("positionsTable");
@@ -692,7 +694,7 @@ export async function renderPortfolio() {
     table.innerHTML = `<div class="empty">No open positions. Go to the Simulator, pick an instrument and click <b>Trade</b> to place your first virtual trade at the live price.</div>`;
   } else {
     table.innerHTML = `<table class="table">
-      <tr><th>Instrument</th><th>Units</th><th>Avg cost</th><th>Live price</th><th>Value</th><th>P/L</th><th>Today</th><th></th></tr>
+      <tr><th>Instrument</th><th>Units</th><th>Avg cost</th><th>Live price</th><th>Value</th><th>P/L since fill</th><th>Day move</th><th></th></tr>
       ${pf.positions.map((p) => {
         const v = ok.find((x) => x.id === p.id);
         if (!v) return `<tr><td>${p.sym}</td><td colspan="7" class="muted">price unavailable</td></tr>`;
@@ -703,7 +705,7 @@ export async function renderPortfolio() {
           <td>${money(v.priceUSD)}<br><span class="muted" style="font-size:10.5px">${v.price.toFixed(2)} ${v.ccy}</span></td>
           <td>${money(v.value)}</td>
           <td class="${cls(v.pl)}">${money(v.pl)}<br><span style="font-size:11px">${pct(v.plPct)}</span></td>
-          <td class="${cls(v.dayPl)}">${money(v.dayPl)}</td>
+          <td>${v.dayPl == null ? '<span class="chip neutral">new ✨</span>' : `<span class="${cls(v.dayPl)}">${money(v.dayPl)}</span>`}</td>
           <td style="text-align:right;white-space:nowrap">
             <button class="btn small" data-sell50="${p.id}">Sell 50%</button>
             <button class="btn small danger" data-sell="${p.id}">Close</button>
