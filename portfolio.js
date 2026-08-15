@@ -296,6 +296,18 @@ async function positionView(p) {
 }
 
 // ---------- public API ----------
+
+function attachBracket(sym, slPx, tpPx, long, entryPx) {
+  if (!slPx && !tpPx) return;
+  const pos = pf.positions.find((p) => p.sym === sym && (long ? p.units > 0 : p.units < 0));
+  if (!pos) return;
+  pos.exits = pos.exits || [];
+  const mk = (price, dir, label) => ({ id: crypto.randomUUID?.() || String(Math.random()), portion: 1, price, dir, filled: null, bracket: label });
+  if (slPx) pos.exits.push(mk(slPx, long ? "below" : "above", "SL"));
+  if (tpPx) pos.exits.push(mk(tpPx, long ? "above" : "below", "TP"));
+  save();
+}
+
 export async function openTradeModal(sym, opts = {}) {
   // opts: { side, orderType, trigger, leverage, source, stopHint, targetHint }
   const overlay = $("tradeModal");
@@ -339,6 +351,9 @@ export async function openTradeModal(sym, opts = {}) {
     ? `<div class="trade-sync ok">☁ Orders save to your token <code>••••${cloudToken.slice(-4)}</code></div>`
     : `<div class="trade-sync">🔐 No token linked — orders stay on this device only. <button type="button" class="btn small" id="modalGenToken">Generate my token</button></div>`;
 
+  const entryPx = priceUSD;
+  const slHint = (S.side === "buy" ? entryPx * (1 - 1 / S.lev * 0.9) : entryPx * (1 + 1 / S.lev * 0.9)).toFixed(2);
+  const tpHint = (S.side === "buy" ? entryPx * 1.15 : entryPx * 0.85).toFixed(2);
   body.innerHTML = `
     <h3>Order ticket — ${sym}</h3>
     <div class="sub">${q.name} · live ${money(priceUSD)} (${q.price.toFixed(2)} ${q.currency}, FX ${fx.toFixed(3)})${heldUnits ? ` · holding ${heldUnits.toFixed(4)} units` : ""}</div>
@@ -368,6 +383,21 @@ export async function openTradeModal(sym, opts = {}) {
     <label id="triggerWrap" style="display:${S.type === "market" ? "none" : "flex"}">Trigger price (USD)
       <input type="number" id="tradeTrigger" value="${S.trigger.toFixed(2)}" step="any" />
     </label>
+    <div class="bracket-row">
+      <label>🛑 Stop-loss (USD) <span class="field-hint">optional · caps downside</span>
+        <input type="number" id="tradeSL" placeholder="${slHint}" step="any" />
+      </label>
+      <label>🎯 Take-profit (USD) <span class="field-hint">optional · locks gain</span>
+        <input type="number" id="tradeTP" placeholder="${tpHint}" step="any" />
+      </label>
+    </div>
+    <div class="bracket-presets">
+      <span class="muted" style="font-size:10.5px">quick fill:</span>
+      <button type="button" class="btn small" data-brk="5">±5%</button>
+      <button type="button" class="btn small" data-brk="10">±10%</button>
+      <button type="button" class="btn small" data-brk="20">±20%</button>
+      <button type="button" class="btn small danger" data-brk="clear">clear</button>
+    </div>
     <div class="summary-box" id="tradeSummary"></div>
     <div id="tradeSyncRow">${syncRow()}</div>
     <div class="modal-actions">
@@ -376,6 +406,7 @@ export async function openTradeModal(sym, opts = {}) {
     </div>`;
 
   const amountEl = $("tradeAmount"), levEl = $("tradeLev"), trigEl = $("tradeTrigger"), trigWrap = $("triggerWrap");
+  const slEl = $("tradeSL"), tpEl = $("tradeTP");
   const sideSeg = $("sideSeg"), typeSeg = $("typeSeg");
 
   sideSeg.addEventListener("click", (e) => {
@@ -392,10 +423,25 @@ export async function openTradeModal(sym, opts = {}) {
     $("tradeConfirm").textContent = S.type === "market" ? "Execute now" : "Place order";
     update();
   });
-  [amountEl, levEl, trigEl].forEach((el) => el.addEventListener("input", update));
+  [amountEl, levEl, trigEl, slEl, tpEl].forEach((el) => el.addEventListener("input", update));
+  body.querySelectorAll("[data-brk]").forEach((b) => {
+    b.onclick = () => {
+      const long = S.side === "buy";
+      if (b.dataset.brk === "clear") { slEl.value = ""; tpEl.value = ""; }
+      else {
+        const pct = Number(b.dataset.brk) / 100;
+        const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
+        slEl.value = (long ? px * (1 - pct) : px * (1 + pct)).toFixed(2);
+        tpEl.value = (long ? px * (1 + pct * 2) : px * (1 - pct * 2)).toFixed(2);
+      }
+      update();
+    };
+  });
 
   function update() {
     S.lev = Number(levEl.value) || 1;
+    S.sl = Number(slEl.value) || null;
+    S.tp = Number(tpEl.value) || null;
     const amt = Math.max(0, Number(amountEl.value) || 0);
     const px = S.type === "market" ? priceUSD : Number(trigEl.value) || priceUSD;
     const units = S.side === "buy" ? (amt * S.lev) / px : amt / px;
@@ -408,7 +454,13 @@ export async function openTradeModal(sym, opts = {}) {
     if (S.type === "auction") parts.push(`executes at the next hourly auction price`);
     if (S.type !== "market") parts.push(`order sits until trigger or cancel — auto-saved`);
     $("tradeSummary").innerHTML = `${amt > (S.side === "buy" ? pf.cash : Infinity) ? `<span class="neg">Insufficient cash — available ${money(pf.cash)}</span><br/>` : ""}${parts.join("<br/>")}`;
-    $("tradeConfirm").disabled = amt <= 0 || (S.side === "buy" && amt > pf.cash);
+    let bracketErr = "";
+    const long = S.side === "buy";
+    if (S.sl && (long ? S.sl >= px : S.sl <= px)) bracketErr = `SL must be ${long ? "below" : "above"} ${money(px)}`;
+    if (S.tp && (long ? S.tp <= px : S.tp >= px)) bracketErr = `TP must be ${long ? "above" : "below"} ${money(px)}`;
+    const summary = $("tradeSummary");
+    if (bracketErr) summary.innerHTML = `<span class="neg">${bracketErr}</span><br/>` + summary.innerHTML;
+    $("tradeConfirm").disabled = amt <= 0 || (S.side === "buy" && amt > pf.cash) || !!bracketErr;
   }
   update();
 
@@ -426,8 +478,9 @@ export async function openTradeModal(sym, opts = {}) {
     if (S.type === "market") {
       if (S.side === "buy" && amt > pf.cash) return;
       executeAtMarket(sym, q.name, q.currency, amt, priceUSD, S.side, S.lev, S.source);
+      attachBracket(sym, S.sl, S.tp, S.side === "buy", priceUSD);
       showFill(body, overlay, {
-        sym, side: S.side, usd: amt, priceUSD,
+        sym, side: S.side, usd: amt, priceUSD, sl: S.sl, tp: S.tp,
         units: S.side === "buy" ? (amt * S.lev) / priceUSD : amt / priceUSD,
         lev: S.lev, source: S.source,
         liq: S.lev > 1 ? (S.side === "buy" ? priceUSD * (1 - 1 / S.lev + 0.005) : priceUSD * (1 + 1 / S.lev - 0.005)) : null,
@@ -437,7 +490,7 @@ export async function openTradeModal(sym, opts = {}) {
       pf.orders.push({
         id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
         sym, name: q.name, ccy: q.currency, side: S.side, type: S.type,
-        usd: amt, trigger: Number(trigEl.value) || priceUSD, lev: S.lev,
+        usd: amt, trigger: Number(trigEl.value) || priceUSD, lev: S.lev, sl: S.sl, tp: S.tp,
         source: S.source || null, created: Date.now(),
       });
       save();
@@ -458,6 +511,8 @@ function showFill(body, overlay, f) {
       ${f.side === "buy" ? "Margin/cost" : "Exposure"} <b>${money(f.usd)}</b> · Cash now <b>${money(pf.cash)}</b>
       ${f.liq ? `<br/>⚠ Liquidation price <b>${money(f.liq)}</b>` : ""}
       ${f.source ? `<br/>⚡ From signal: ${f.source}` : ""}
+      ${f.sl ? `<br/>🛑 Stop-loss <b>${money(f.sl)}</b>` : ""}${f.tp ? ` · 🎯 Take-profit <b>${money(f.tp)}</b>` : ""}
+      ${(f.sl || f.tp) ? `<br/><span class="muted" style="font-size:11px">Bracket attached — auto-executes like any exit level (🎯 on the position).</span>` : ""}
       <br/><span class="muted" style="font-size:11px">P/L since fill starts at $0.00 — the "Day move" column shows today's market move (incl. before your entry), not your profit.</span>
       <br/>${cloudToken ? `☁ Saved to token <code>••••${cloudToken.slice(-4)}</code>` : `📱 Saved locally — link a token to keep it forever`}
     </div>
@@ -556,6 +611,7 @@ export async function processPendingOrders(auctionTick = false) {
     if (!fire) continue;
     pf.orders = pf.orders.filter((x) => x.id !== o.id);
     executeAtMarket(o.sym, o.name, o.ccy, o.usd, priceUSD, o.side, o.lev, o.source || `order:${o.type}@${o.trigger}`);
+    attachBracket(o.sym, o.sl, o.tp, o.side === "buy", priceUSD);
     changed = true;
   }
   if (changed) { save(); renderPortfolio(); }
