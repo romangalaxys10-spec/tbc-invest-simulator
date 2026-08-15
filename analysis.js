@@ -273,6 +273,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish (Goldilocks)",
       biasCls: "good",
       trigger: "Cooling labor (+140k–170k) keeps Fed rate cuts on track without recession fears.",
+      targetTime: "2026-09-04T12:30:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "+130k to +175k (solid growth + rate cut fuel)" },
         { type: "bear", label: "Bearish if", text: ">+220k (hot jobs delay cuts) or <+90k (hard landing scare)" }
@@ -288,6 +289,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish if ≤2.8%",
       biasCls: "good",
       trigger: "Disinflation continuation unlocks liquidity and eases bond yields.",
+      targetTime: "2026-09-11T12:30:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "≤ 2.8% (solid disinflation, risk-on rally)" },
         { type: "bear", label: "Bearish if", text: "≥ 3.0% (sticky inflation rebound, yields spike, tech pressured)" }
@@ -303,6 +305,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish / Dovish",
       biasCls: "good",
       trigger: "Markets pricing high odds of rate easing cadence & dovish dot plot guidance.",
+      targetTime: "2026-09-16T18:00:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "25bps cut or dovish pause with dovish dot-plot" },
         { type: "bear", label: "Bearish if", text: "Hawkish hold with delayed cut projections" }
@@ -318,6 +321,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish (Rate Cut)",
       biasCls: "good",
       trigger: "Anticipated 25bps rate cut reduces borrowing costs for European equities.",
+      targetTime: "2026-09-17T12:15:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "25bps cut confirmed (3.50%) with accommodative tone" },
         { type: "bear", label: "Bearish if", text: "Surprise pause or stagflation commentary" }
@@ -333,6 +337,7 @@ function viewEvents(d) {
       bias: "🟡 Two-Way / Volatile",
       biasCls: "warn",
       trigger: "Watch Yen carry trade dynamics. Rate hike could spark risk asset pullback.",
+      targetTime: "2026-09-18T03:00:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "Hold at 0.25% with patient guidance (calms global carry trade)" },
         { type: "bear", label: "Bearish if", text: "Surprise hike to 0.50% (Yen spikes, triggers risk-off liquidation)" }
@@ -348,6 +353,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish (Soft Landing)",
       biasCls: "good",
       trigger: "Confirms robust corporate earnings backdrop without overheating.",
+      targetTime: "2026-09-24T12:30:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "≥ +2.7% (confirms soft landing resilience)" },
         { type: "bear", label: "Bearish if", text: "< +2.0% (recession growth drag)" }
@@ -355,6 +361,7 @@ function viewEvents(d) {
     },
     {
       date: "2026-09-25",
+      time: "12:30 UTC · 16:30 GET",
       event: "🇺🇸 US Core PCE Price Index (MoM)",
       cat: "Fed Gauge",
       impact: "Medium",
@@ -363,6 +370,7 @@ function viewEvents(d) {
       bias: "🟢 Bullish if ≤0.2%",
       biasCls: "good",
       trigger: "Fed's primary inflation gauge confirming price stability.",
+      targetTime: "2026-09-25T12:30:00Z",
       scenarios: [
         { type: "bull", label: "Bullish if", text: "+0.1% or +0.2% (cements easing path)" },
         { type: "bear", label: "Bearish if", text: "≥ +0.3% (services inflation persistence)" }
@@ -370,14 +378,25 @@ function viewEvents(d) {
     },
   ];
 
+  const fmtCountdown = (isoStr) => {
+    const diff = new Date(isoStr).getTime() - Date.now();
+    if (diff <= 0) return "Active / Now";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    if (days > 0) return `${days}d ${hours}h ${mins}m`;
+    return `${hours}h ${mins}m ${secs}s`;
+  };
+
   const macroHtml = `
     <h3 style="margin-top:22px">🌐 Global Macroeconomic Calendar</h3>
-    <p class="lead">Key macroeconomic catalysts influencing global liquidity, interest rates, and asset prices across equities, crypto, bonds, and FX — with expected bullish vs. bearish market reactions.</p>
+    <p class="lead">Key macroeconomic catalysts influencing global liquidity, interest rates, and asset prices across equities, crypto, bonds, and FX — with expected bullish vs. bearish market reactions and live countdowns.</p>
     <div class="macro-table-wrap">
       <table class="macro-table">
         <thead>
           <tr>
-            <th style="min-width:90px">Date</th>
+            <th style="min-width:110px">Date &amp; Countdown</th>
             <th style="min-width:280px">Event & Catalysts</th>
             <th>Category</th>
             <th>Impact</th>
@@ -387,7 +406,10 @@ function viewEvents(d) {
         </thead>
         <tbody>
           ${macroEvents.map((m) => `<tr>
-            <td class="mono" style="font-weight:700">${m.date}</td>
+            <td class="mono" style="font-weight:700">
+              ${m.date}
+              <div class="macro-countdown-chip" data-target="${m.targetTime}">⏳ <span>${fmtCountdown(m.targetTime)}</span></div>
+            </td>
             <td>
               <span class="macro-event-title">${m.event}</span>
               <span class="macro-event-desc">${m.trigger}</span>
@@ -409,7 +431,7 @@ function viewEvents(d) {
     <div class="playbook-container" style="margin-top:16px">
       <div class="playbook-header">
         <span class="playbook-title">⚡ Asset Class Reaction Playbook</span>
-        <span class="playbook-sub">Cross-asset positioning guide with catalyst dates, impact strength &amp; directional sensitivity</span>
+        <span class="playbook-sub">Cross-asset positioning guide with catalyst dates, impact strength, live countdown &amp; directional sensitivity</span>
       </div>
       <div class="playbook-grid">
         <div class="playbook-card">
@@ -422,7 +444,8 @@ function viewEvents(d) {
             <span class="macro-impact-badge high"><span class="impact-dot"></span>HIGH IMPACT</span>
           </div>
           <div class="playbook-meta-bar">
-            <span class="playbook-meta-item">📅 <b>Next: Sep 11, 2026</b> · 16:30 GET (08:30 EDT)</span>
+            <span class="playbook-meta-item">📅 <b>Sep 11, 2026</b> · 16:30 GET (08:30 EDT)</span>
+            <span class="playbook-countdown-badge" data-target="2026-09-11T12:30:00Z">⏳ <span>${fmtCountdown("2026-09-11T12:30:00Z")}</span></span>
             <span class="playbook-meta-item">⚡ Strength: <b style="color:var(--down)">★★★★★ 9.4/10</b></span>
           </div>
           <div class="playbook-mechanism">USD strengthens, bond yields spike, rate cut expectations pushed back.</div>
@@ -455,7 +478,8 @@ function viewEvents(d) {
             <span class="macro-impact-badge high"><span class="impact-dot"></span>VERY HIGH</span>
           </div>
           <div class="playbook-meta-bar">
-            <span class="playbook-meta-item">📅 <b>Next: Sep 16, 2026</b> · 22:00 GET (14:00 EDT)</span>
+            <span class="playbook-meta-item">📅 <b>Sep 16, 2026</b> · 22:00 GET (14:00 EDT)</span>
+            <span class="playbook-countdown-badge" data-target="2026-09-16T18:00:00Z">⏳ <span>${fmtCountdown("2026-09-16T18:00:00Z")}</span></span>
             <span class="playbook-meta-item">⚡ Strength: <b style="color:var(--up)">★★★★★ 9.8/10</b></span>
           </div>
           <div class="playbook-mechanism">Liquidity expands, discount rates drop, risk appetite accelerates.</div>
@@ -488,7 +512,8 @@ function viewEvents(d) {
             <span class="macro-impact-badge high"><span class="impact-dot"></span>CRITICAL</span>
           </div>
           <div class="playbook-meta-bar">
-            <span class="playbook-meta-item">📅 <b>Next: Sep 18, 2026</b> · 07:00 GET (Asia Open)</span>
+            <span class="playbook-meta-item">📅 <b>Sep 18, 2026</b> · 07:00 GET (Asia Open)</span>
+            <span class="playbook-countdown-badge" data-target="2026-09-18T03:00:00Z">⏳ <span>${fmtCountdown("2026-09-18T03:00:00Z")}</span></span>
             <span class="playbook-meta-item">⚡ Strength: <b style="color:#fbbf24">★★★★★ 9.1/10</b></span>
           </div>
           <div class="playbook-mechanism">Global leveraged carry trades rapidly unwind, prompting forced selling.</div>
@@ -643,6 +668,29 @@ export function initAnalysis() {
   const artOverlay = document.getElementById("articleModal");
   artOverlay.addEventListener("click", (e) => { if (e.target === artOverlay) closeArticle(); });
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeArticle(); });
+
+  // Live countdown timer ticker for macro events
+  setInterval(() => {
+    const badges = document.querySelectorAll("[data-target]");
+    if (!badges.length) return;
+    const now = Date.now();
+    badges.forEach((el) => {
+      const target = el.dataset.target;
+      if (!target) return;
+      const diff = new Date(target).getTime() - now;
+      const span = el.querySelector("span");
+      if (!span) return;
+      if (diff <= 0) {
+        span.textContent = "Active / Now";
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      span.textContent = days > 0 ? `${days}d ${hours}h ${mins}m` : `${hours}h ${mins}m ${secs}s`;
+    });
+  }, 1000);
 }
 
 // ---------- Elliott waves & patterns ----------
