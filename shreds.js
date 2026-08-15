@@ -226,7 +226,7 @@ async function openProviderModal() {
       if (!url.startsWith("https://")) { document.getElementById("provTest").innerHTML = '<span class="neg">Must be an https:// URL</span>'; return; }
       document.getElementById("provTest").innerHTML = "Testing…";
       try {
-        const r = await fetch("/api/shreds?probe=1&symbol=SOL-USD", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: "SOL-USD", providers: [{ url, key }] }) });
+        const r = await fetch("/api/shreds-sol?probe=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: "SOL-USD", providers: [{ url, key }] }) });
         const j = await r.json();
         const stat = (j.providers || []).find((p) => p.host === new URL(url).host);
         document.getElementById("provTest").innerHTML = stat

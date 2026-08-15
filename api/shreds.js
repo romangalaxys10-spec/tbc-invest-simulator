@@ -196,6 +196,7 @@ export default async function handler(req, res) {
     if (EVM[symbol]) return res.status(200).json(await evmDecoder(symbol));
     // default: Solana engine, normalized into the universal shape
     const sol = (await import("./shreds-sol.js")).default;
+    if (req.query.probe === "1") return sol(req, res); // probe pass-through, no normalization
     let cap;
     await sol(req, { setHeader() {}, status() { return this; }, json(j) { cap = j; return this; } });
     if (!cap || cap.error) return res.status(502).json(cap || { error: "SOL feed failed" });
