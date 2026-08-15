@@ -362,6 +362,8 @@ els.tabs.addEventListener("click", (e) => {
   if (!b) return;
   els.tabs.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
   state.cat = b.dataset.cat;
+  store.cat = b.dataset.cat;
+  window.dispatchEvent(new CustomEvent("cat-changed", { detail: b.dataset.cat }));
   renderList();
   loadQuotes();
 });

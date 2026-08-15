@@ -1,5 +1,8 @@
 // Intraday radar: hourly market scan, alert bell, and the intraday box.
 
+import { store } from "./store.js";
+import { CATEGORY_LABELS } from "./instruments.js";
+
 const $ = (id) => document.getElementById(id);
 const KEY_ALERTS = "tbc_alerts_v1";
 const HOUR = 3600000;
@@ -66,7 +69,10 @@ export function renderIntraday() {
     wireScanBtn();
     return;
   }
-  const alerts = lastScan.alerts || [];
+  const cat = store.cat || "stock";
+  const catLabel = CATEGORY_LABELS[cat] || cat;
+  const alerts = (lastScan.alerts || []).filter((a) => a.cat === cat);
+  const totalAlerts = (lastScan.alerts || []).length;
   const bulls = alerts.filter((a) => a.dir === "bullish").length;
   const bears = alerts.filter((a) => a.dir === "bearish").length;
   const t = new Date(lastScan.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -85,10 +91,11 @@ export function renderIntraday() {
         <button class="rfilter ${radarFilter === "all" ? "active" : ""}" data-f="all">All ${alerts.length}</button>
         <button class="rfilter up ${radarFilter === "bullish" ? "active" : ""}" data-f="bullish">▲ Bullish ${bulls}</button>
         <button class="rfilter down ${radarFilter === "bearish" ? "active" : ""}" data-f="bearish">▼ Bearish ${bears}</button>
+        <span class="chip neutral">📌 ${catLabel}</span>
         <button class="btn small" id="radarScan">↻ Scan now</button>
       </div>
     </div>
-    <div class="radar-sub">${t} · hourly auto-scan · strength-sorted (patterns &gt; crosses &gt; RSI)</div>
+    <div class="radar-sub">${t} · showing <b>${alerts.length}</b> ${catLabel.toLowerCase()} signal${alerts.length === 1 ? "" : "s"} of ${totalAlerts} total · switch category tabs above to change · hourly auto-scan · strength-sorted</div>
     ${shown.length ? `<div class="radar-grid">${shown.map((a) => `
       <div class="radar-card ${a.dir}">
         <div class="rc-top">
@@ -142,6 +149,7 @@ export function initAlerts() {
   }
   scanMarket();
   setInterval(() => scanMarket({ silent: false }), HOUR);
+  window.addEventListener("cat-changed", renderIntraday);
   renderBell();
   renderIntraday();
 }
