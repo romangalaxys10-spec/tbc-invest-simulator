@@ -760,3 +760,5 @@ input[type="range"]::-moz-range-thumb {
 .sp-bar > div { height: 100%; background: linear-gradient(90deg, #fbbf24, #f97316); border-radius: 5px; }
 .sp-count { font-family: var(--mono); font-size: 12px; text-align: right; color: var(--text); }
 @media (max-width: 1080px) { .shred-cols { grid-template-columns: 1fr; } }
+.shred-stat.warn .n { color: var(--down); }
+.shred-stat.warn { border-color: rgba(248,113,113,.3); }

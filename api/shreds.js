@@ -1,19 +1,19 @@
-// Crypto shreds: raw on-chain telemetry from free public Solana RPCs —
-// network velocity, whale transfers and DEX program flow, slot-fresh.
-// (True shred streaming requires Jito ShredStream gRPC membership; this is
-// the free approximation via raw RPC data.)
+// Crypto shreds: raw on-chain telemetry from free public Solana RPCs.
+// Scans ~8 confirmed blocks: DEX program flow (top + inner instructions),
+// largest token flows with live SOL pricing, fail ratio, network velocity.
+// (True shred streaming = Jito ShredStream gRPC, paid; this is the free
+// raw-RPC approximation, slot-fresh.)
 
-const RPCS = [
-  "https://solana-rpc.publicnode.com",
-  "https://api.mainnet-beta.solana.com",
-];
+import { fetchChart } from "../lib/yahoo.js";
+
+const RPCS = ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
 
 async function rpc(method, params = []) {
   let lastErr;
   for (const url of RPCS) {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
+      const t = setTimeout(() => ctrl.abort(), 9000);
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,56 +36,83 @@ const PROGRAMS = [
   { id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", name: "Raydium AMM" },
   { id: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK", name: "Raydium CLMM" },
   { id: "6EF8rrecthR8Dkzon1NaiLja4gDr39TQF5k9pQN1K4uj", name: "Pump.fun" },
-  { id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", name: "Orca Whirlpool" },
+  { id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc", name: "Orca" },
   { id: "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", name: "OpenBook" },
 ];
-const STABLES = {
+const MINTS = {
+  So11111111111111111111111111111111111111112: "wSOL",
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",
   Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: "USDT",
 };
 
 export default async function handler(req, res) {
   try {
-    const perf = await rpc("getRecentPerformanceSamples", [6]);
+    const [perf, info, solChart] = await Promise.all([
+      rpc("getRecentPerformanceSamples", [6]),
+      rpc("getEpochInfo"),
+      fetchChart("SOL-USD", Math.floor(Date.now() / 1000) - 5 * 86400, Math.floor(Date.now() / 1000) + 86400).catch(() => null),
+    ]);
+    const solPrice = solChart?.meta?.regularMarketPrice ?? null;
     const latest = perf[0];
     const tps = latest.numTransactions / latest.samplePeriodSecs;
     const slotMs = (latest.samplePeriodSecs / latest.numSlots) * 1000;
-
-    const info = await rpc("getEpochInfo");
     const slot = info.absoluteSlot;
 
-    let whales = [], programs = [];
-    const blockSlot = slot - 2;
-    const block = await rpc("getBlock", [blockSlot, { encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0 }]);
-    if (block?.transactions) {
-      const counts = Object.fromEntries(PROGRAMS.map((p) => [p.id, 0]));
-      for (const tx of block.transactions.slice(0, 4000)) {
+    const blocks = (
+      await Promise.all(
+        [2, 3, 4, 5, 6, 7, 8, 9].map((off) =>
+          rpc("getBlock", [slot - off, { encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0, commitment: "confirmed" }]).catch(() => null)
+        )
+      )
+    ).filter(Boolean);
+
+    const counts = Object.fromEntries(PROGRAMS.map((p) => [p.id, 0]));
+    const flows = [];
+    let vol = { wSOL: 0, USDC: 0, USDT: 0 };
+    let fails = 0, totalTx = 0;
+
+    for (const b of blocks) {
+      for (const tx of b.transactions || []) {
+        totalTx++;
+        if (tx.meta?.err) fails++;
+        const all = [...(tx.transaction?.message?.instructions || [])];
+        for (const inn of tx.meta?.innerInstructions || []) all.push(...(inn.instructions || []));
         const sig = tx.transaction?.signatures?.[0];
-        for (const ix of tx.transaction?.message?.instructions || []) {
+        for (const ix of all) {
           if (ix.programId in counts) counts[ix.programId]++;
           const p = ix.parsed;
-          if (p?.type === "transfer" && p.info?.lamports >= 500 * 1e9) {
-            whales.push({ slot: blockSlot, sig, from: p.info.source, to: p.info.destination, amount: p.info.lamports / 1e9, kind: "SOL" });
+          if (!p) continue;
+          // native SOL transfers
+          if (p.type === "transfer" && p.info?.lamports >= 20 * 1e9) {
+            flows.push({ sym: "SOL", amt: p.info.lamports / 1e9, usd: ((p.info.lamports / 1e9) * (solPrice || 0)), from: p.info.source, to: p.info.destination, sig, slot: slot - 1 });
           }
-          if ((p?.type === "transferChecked" || p?.type === "transfer") && p.info?.tokenAmount) {
+          // token transfers (wSOL + stables)
+          if ((p.type === "transferChecked" || p.type === "transfer") && p.info?.tokenAmount?.uiAmount != null) {
+            const sym = MINTS[p.info.mint];
+            if (!sym) continue;
             const amt = p.info.tokenAmount.uiAmount;
-            const mint = p.info.mint;
-            if (amt != null && mint in STABLES && amt >= 100000) {
-              whales.push({ slot: blockSlot, sig, from: p.info.source || p.info.authority, to: p.info.destination, amount: amt, kind: STABLES[mint] });
+            vol[sym] += amt;
+            const usd = sym === "wSOL" ? amt * (solPrice || 0) : amt;
+            if (usd >= 3000) {
+              flows.push({ sym, amt, usd, from: p.info.source || p.info.authority || "?", to: p.info.destination || "?", sig, slot: slot - 1 });
             }
           }
         }
       }
-      whales = whales.sort((a, b) => b.amount - a.amount).slice(0, 8);
-      programs = PROGRAMS.map((p) => ({ name: p.name, count: counts[p.id] })).sort((a, b) => b.count - a.count);
     }
+
+    flows.sort((a, b) => b.usd - a.usd);
+    const programs = PROGRAMS.map((p) => ({ name: p.name, count: counts[p.id] })).sort((a, b) => b.count - a.count);
+    const volUsd = { wSOL: vol.wSOL * (solPrice || 0), USDC: vol.USDC, USDT: vol.USDT };
 
     res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=15");
     res.status(200).json({
-      slot, tps: +tps.toFixed(0), slotMs: +slotMs.toFixed(0),
-      blockHeight: block?.blockHeight ?? null,
-      whales, programs,
-      sampledTx: block?.transactions?.length ?? 0,
+      slot, solPrice, tps: +tps.toFixed(0), slotMs: +slotMs.toFixed(0),
+      blocksScanned: blocks.length, slotsRange: blocks.length ? [slot - blocks.length - 1, slot - 2] : null,
+      totalTx, failRate: totalTx ? +(fails / totalTx).toFixed(3) : null,
+      dexCalls: programs.reduce((s, p) => s + p.count, 0),
+      flows: flows.slice(0, 10),
+      programs, volUsd,
       fetchedAt: Date.now(),
     });
   } catch (e) {
