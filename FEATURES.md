@@ -14,11 +14,12 @@
 
 | Feature | Code |
 |---|---|
-| 238-instrument catalog, 7 categories | `instruments.js` (`CATALOG`, `CATEGORY_LABELS`) |
-| Category tabs above layout | `index.html` `.asset-tabs` · `app.js` `els.tabs` handler |
+| 238-instrument catalog, 8 categories (incl. Polymarket) | `instruments.js` (`CATALOG`, `CATEGORY_LABELS`, `CATEGORY_ICONS`) |
+| Enhanced category tabs with icons, live instrument counts, glassmorphism gradient active states | `index.html` `.asset-tabs` · `app.js` `renderCategoryTabs` · `styles.css` `.tab-btn, .tab-icon, .tab-count` |
 | Live candles+quotes (Yahoo, browser-UA, GBp→GBP) | `api/history.js` · `lib/yahoo.js` `fetchChart/chartToCandles` |
 | Yahoo crumb auth (quoteSummary) | `lib/yahoo.js` `fetchQuoteSummary/getAuth` |
 | FX: any ccy→USD, inverse pairs, USX cents | `fx.js` · `portfolio.js` `getFx` |
+
 
 ## 2. What-if Simulator
 

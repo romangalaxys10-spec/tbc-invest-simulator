@@ -1,4 +1,4 @@
-import { CATALOG, CATEGORY_LABELS, getFilteredCatalog, getVisibleCategories } from "./instruments.js";
+import { CATALOG, CATEGORY_LABELS, CATEGORY_ICONS, getFilteredCatalog, getVisibleCategories } from "./instruments.js";
 import { loadAnalysis, initAnalysis } from "./analysis.js";
 import { openTradeModal, initPortfolio, renderPortfolio, initTokenBanner, getPrefs, openPrefsModal } from "./portfolio.js";
 import { mountCandleChart } from "./chart.js";
@@ -64,18 +64,37 @@ async function fetchJSON(url) {
 
 // ---------- instrument list & categories ----------
 function renderCategoryTabs() {
-  const vis = getVisibleCategories(getPrefs());
+  const prefs = getPrefs();
+  const vis = getVisibleCategories(prefs);
   const visKeys = Object.keys(vis);
+  const filteredCatalog = getFilteredCatalog(prefs);
+  
   if (!visKeys.includes(state.cat)) {
     state.cat = visKeys[0] || "stock";
     store.cat = state.cat;
   }
+  
+  // Calculate count of instruments per category for efficiency
+  const counts = {};
+  for (const item of filteredCatalog) {
+    counts[item.cat] = (counts[item.cat] || 0) + 1;
+  }
+
   els.tabs.innerHTML = visKeys.map((catKey) => {
     const label = vis[catKey];
     const isAct = catKey === state.cat;
-    return `<button data-cat="${catKey}" class="${isAct ? "active" : ""}">${catKey === "polymarket" ? "🔮 " : ""}${label}</button>`;
+    const icon = CATEGORY_ICONS[catKey] || "📊";
+    const count = counts[catKey] || 0;
+    return `
+      <button data-cat="${catKey}" class="tab-btn ${isAct ? "active" : ""}" title="View ${label} universe (${count} instruments)">
+        <span class="tab-icon">${icon}</span>
+        <span class="tab-label">${label}</span>
+        <span class="tab-count">${count}</span>
+      </button>
+    `;
   }).join("");
 }
+
 
 function catalogForRender() {
   const q = state.search.trim().toLowerCase();

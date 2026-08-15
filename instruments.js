@@ -287,6 +287,17 @@ export const CATALOG = [
 
 export const CATEGORY_LABELS = { stock: "Stocks", etf: "ETFs", bond: "Bonds", futures: "Futures", crypto: "Crypto", forex: "Forex", index: "Indices", polymarket: "Polymarket" };
 
+export const CATEGORY_ICONS = {
+  stock: "📈",
+  etf: "📦",
+  bond: "🏛️",
+  futures: "⚡",
+  crypto: "🪙",
+  forex: "💱",
+  index: "🌐",
+  polymarket: "🔮"
+};
+
 // Per-token preferences helper for filtering categories and instruments
 export function getFilteredCatalog(prefs = null) {
   if (!prefs) return CATALOG;
@@ -303,3 +314,4 @@ export function getVisibleCategories(prefs = null) {
   }
   return out;
 }
+
