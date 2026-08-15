@@ -80,12 +80,15 @@ function liveFlowHtml(d) {
 }
 
 const SHRED_CRYPTO = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
-const SUPPORTED = new Set([...SHRED_CRYPTO, ...CATALOG.filter((i) => ["stock", "etf", "index", "polymarket"].includes(i.cat)).map((i) => i.sym)]);
+const SUPPORTED = new Set([...SHRED_CRYPTO, ...CATALOG.map((i) => i.sym)]);
 const THEME = {
   BTC: { color: "#f7931a", name: "Bitcoin" },
   EVM: { color: "#627eea", name: "EVM" },
   SOL: { color: "#14f195", name: "Solana" },
   EQ: { color: "#4da3ff", name: "Equity" },
+  FUT: { color: "#f59e0b", name: "Futures & Commodities" },
+  BOND: { color: "#06b6d4", name: "Bonds & Rates" },
+  FX: { color: "#10b981", name: "Forex" },
   PM: { color: "#9333ea", name: "Polymarket" },
 };
 
@@ -132,7 +135,7 @@ function flowMapHtml(d, th) {
     `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M365,52 C420,74 480,74 525,52"/></circle>`
   ).join("");
   const pL = "#34d399";
-  const chainSub = d.chain === "PM" ? "Polymarket CLOB" : d.chain === "EQ" ? "SEC EDGAR & Options Flow" : `${d.chain} · animated live feed`;
+  const chainSub = d.chain === "PM" ? "Polymarket CLOB" : d.chain === "FUT" ? "CME/NYMEX Flow & Options Proxy" : d.chain === "BOND" ? "Treasury & Bond ETF Flow" : d.chain === "FX" ? "Forex Flow & Currency Options" : d.chain === "EQ" ? "SEC EDGAR & Options Flow" : `${d.chain} · animated live feed`;
   return `
   <div class="flow-map">
     <div class="fm-head">
@@ -166,7 +169,7 @@ function render() {
   if (!box) return;
   const sym = currentSym || store.symbol;
   const isPM = sym?.startsWith("PM:") || store.cat === "polymarket";
-  const defTheme = isPM ? THEME.PM : (store.cat === "stock" || store.cat === "etf" || store.cat === "index" ? THEME.EQ : THEME.SOL);
+  const defTheme = isPM ? THEME.PM : store.cat === "futures" ? THEME.FUT : store.cat === "bond" ? THEME.BOND : store.cat === "forex" ? THEME.FX : (store.cat === "stock" || store.cat === "etf" || store.cat === "index" ? THEME.EQ : THEME.SOL);
   if (!data) {
     box.innerHTML = head("Scanning raw telemetry & odds…", false, defTheme);
     return;
@@ -177,7 +180,7 @@ function render() {
     if (rb) rb.onclick = () => loadShreds(currentSym);
     return;
   }
-  const th = THEME[data.chain] || (isPM ? THEME.PM : THEME.SOL);
+  const th = THEME[data.chain] || defTheme;
   const chainName = data.chainName || th.name;
   const g = data.gauge || { value: 50, label: "—", low: "", high: "", kind: "bias" };
   const gCol = gaugeColor(g.kind, g.value);
@@ -207,14 +210,14 @@ function render() {
 
     <div class="shred-cols">
       <div>
-        <h3>${data.chain === "PM" ? "🔮 Real-Time Orderbook & Probability Flows" : "🐋 Top on-chain flows"} <span class="muted" style="font-size:10.5px;font-weight:500">live-priced</span></h3>
+        <h3>${data.chain === "PM" ? "🔮 Real-Time Orderbook & Probability Flows" : "🐋 Top market flows"} <span class="muted" style="font-size:10.5px;font-weight:500">live-priced</span></h3>
         ${data.flows?.length ? `<div class="flow-list">
           ${data.flows.map((w) => {
             const tier = w.usd >= 50000 ? "whale" : w.usd >= 10000 ? "big" : "std";
             const tokCls = w.sym === "USDC" ? "usdc" : w.sym === "USDT" ? "usdt" : w.sym?.includes("BTC") ? "btc" : w.sym?.includes("ETH") ? "eth" : w.sym === "YES" ? "yes" : w.sym === "NO" ? "no" : data.chain === "PM" ? "pm" : "sol";
             return `<a class="flow-row ${tier}" href="${w.link || '#'}" target="_blank" rel="noopener">
               <span class="flow-token ${tokCls}">${w.sym}</span>
-              <span class="flow-amts"><b>${w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 })}</b><i>${usd(w.usd)}</i></span>
+              <span class="flow-amts"><b>${typeof w.amt === "number" ? w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 }) : w.amt}</b><i>${usd(w.usd)}</i></span>
               <span class="flow-addr muted">${short(w.from)} <span class="flow-arrow">→</span> ${short(w.to)}</span>
               <span class="flow-link">${data.chain === "PM" ? "market ↗" : "explorer ↗"}</span>
             </a>`;
@@ -244,7 +247,7 @@ function render() {
     </div>` : ""}
 
     ${data.cards?.length ? `<div class="noob-cards">
-      <h3>🧭 ${data.chain === "PM" ? "Prediction Desk & Signals" : "Beginner mode — what this means for you"}</h3>
+      <h3>🧭 ${data.chain === "PM" ? "Prediction Desk & Signals" : "Market Signals & Flow Insights"}</h3>
       <div class="nc-grid">
         ${data.cards.map((c) => `
           <div class="nc-card ${c.cls}">
@@ -255,7 +258,7 @@ function render() {
       </div>
     </div>` : ""}
 
-    <p class="hint">${data.chain === "BTC" ? "Data: mempool.space (open-source) — real Bitcoin mempool, pre-confirmation." : data.chain === "EVM" ? "Data: public RPC block flow — latest block decoded live." : data.chain === "EQ" ? "Data: SEC EDGAR insider Form 4s & options flow — decoded live." : data.chain === "PM" ? "Data: Polymarket Gamma API & CLOB Orderbooks — real-time probability pricing, 24h volume & odds decoded live." : "Data: public Solana RPCs — multi-slot block telemetry."} Free & keyless. Educational research, not advice.</p>`;
+    <p class="hint">${data.chain === "BTC" ? "Data: mempool.space (open-source) — real Bitcoin mempool, pre-confirmation." : data.chain === "EVM" ? "Data: public RPC block flow — latest block decoded live." : data.chain === "EQ" ? "Data: SEC EDGAR insider Form 4s & options flow — decoded live." : data.chain === "FUT" ? "Data: CME/NYMEX/CBOT front futures telemetry & ETF options flow decoded live." : data.chain === "BOND" ? "Data: Treasury & Bond ETF flow and options decoded live." : data.chain === "FX" ? "Data: Global Forex telemetry & currency options proxies decoded live." : data.chain === "PM" ? "Data: Polymarket Gamma API & CLOB Orderbooks — real-time probability pricing, 24h volume & odds decoded live." : "Data: public Solana RPCs — multi-slot block telemetry."} Free & keyless. Educational research, not advice.</p>`;
 
   box.querySelectorAll(".nc-exec").forEach((b) => {
     b.onclick = () => import("./portfolio.js").then(({ openTradeModal }) =>

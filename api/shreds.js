@@ -85,14 +85,29 @@ async function haltsFeed(sym) {
 async function equityDecoder(symbol) {
   const cat = CATALOG.find((i) => i.sym === symbol)?.cat;
   const isIndex = cat === "index";
+  const isFutures = cat === "futures";
+  const isBond = cat === "bond";
+  const isForex = cat === "forex";
+  const noInsider = isIndex || isFutures || isBond || isForex;
   const [price, insider, halts] = await Promise.all([
     priceOf(symbol),
-    isIndex ? Promise.resolve({ prints: [], recent: { form4: 0, d13: 0, k8: 0 } }) : edgarInsider(symbol),
+    noInsider ? Promise.resolve({ prints: [], recent: { form4: 0, d13: 0, k8: 0 } }) : edgarInsider(symbol),
     haltsFeed(symbol),
   ]);
-  // options flow
+  // options flow & proxy routing
   let opt = null, ocCalls = [], ocPuts = [];
-  const OPT_PROXY = { "^GSPC": "^SPX", "^IXIC": "^NDX", "^DJI": "^DJX", "^RUT": "^RUT", "^VIX": "^VIX" };
+  const OPT_PROXY = {
+    "^GSPC": "^SPX", "^IXIC": "^NDX", "^DJI": "^DJX", "^RUT": "^RUT", "^VIX": "^VIX",
+    // Futures to liquid ETF / underlying options proxies
+    "ES=F": "SPY", "NQ=F": "QQQ", "YM=F": "DIA", "RTY=F": "IWM",
+    "CL=F": "USO", "BZ=F": "BNO", "NG=F": "UNG",
+    "GC=F": "GLD", "SI=F": "SLV", "HG=F": "CPER",
+    "ZN=F": "IEF", "ZB=F": "TLT", "ZF=F": "IEI", "ZT=F": "SHY", "UB=F": "TLT",
+    "ZC=F": "CORN", "ZW=F": "WEAT", "ZS=F": "SOYB",
+    "ETH=F": "ETH-USD", "NKD=F": "EWJ",
+    // Bond ETF & Forex proxies
+    "EURUSD=X": "FXE", "USDJPY=X": "FXY", "GBPUSD=X": "FXB", "AUDUSD=X": "FXA", "USDCAD=X": "FXC", "USDCHF=X": "FXF"
+  };
   try {
     const oc = await fetchOptions(OPT_PROXY[symbol] || symbol);
     const expDate = new Date(oc.options[0].expirationDate * 1000).toISOString().slice(0, 10);
@@ -201,8 +216,9 @@ const insight = sparse ? {
     .sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 6)
     .map((x) => ({ name: `${x.kind} ${x.strike}`, count: x.volume || 0 })) : [];
   const totalVol = (opt?.cv || 0) + (opt?.pv || 0);
+  const chainName = isFutures ? "Futures Flow" : isIndex ? "Index" : isBond ? "Bond" : isForex ? "Forex" : "Equity";
   return {
-    chain: "EQ", symbol, price, chainName: isIndex ? "Index" : "Equity",
+    chain: isFutures ? "FUT" : isBond ? "BOND" : isForex ? "FX" : "EQ", symbol, price, chainName,
     stats, gauge: { value: gaugeVal, label: gaugeLabel, low: "put flow", high: "call flow", kind: "bias" },
     tick: opt ? { a: opt.cv, aLabel: "call flow", b: opt.pv, bLabel: "put flow", gauge: gaugeVal }
       : pa ? { a: pa.up, aLabel: "up days (20d)", b: 20 - pa.up, bLabel: "down days (20d)", gauge: pa.up * 5 }
@@ -266,7 +282,7 @@ async function btcDecoder(symbol) {
   const pressure = Math.min(100, Math.round((mvb / 80) * 100 + fees.fastestFee / 2));
   const gaugeLabel = pressure > 60 ? "Congested" : pressure > 30 ? "Busy" : pressure > 12 ? "Normal" : "Calm";
   return {
-    chain: "BTC", symbol, price,
+    chain: "BTC", symbol, price, chainName: "Bitcoin",
     stats: [
       { label: "pending txs", value: mem.count.toLocaleString() },
       { label: "mempool", value: `${mvb.toFixed(1)} MvB`, warn: mvb > 40 },
@@ -611,7 +627,7 @@ export default async function handler(req, res) {
     if (symbol === "BTC-USD" || symbol === "BTC=F") return res.status(200).json(await btcDecoder(symbol));
     if (EVM[symbol]) return res.status(200).json(await evmDecoder(symbol));
     const cat = CATALOG.find((i) => i.sym === symbol)?.cat;
-    if (cat === "stock" || cat === "etf" || cat === "index") return res.status(200).json(await equityDecoder(symbol));
+    if (cat === "stock" || cat === "etf" || cat === "index" || cat === "futures" || cat === "bond" || cat === "forex") return res.status(200).json(await equityDecoder(symbol));
     if (cat === "polymarket") return res.status(200).json(await polymarketDecoder(symbol));
     // default: Solana engine, normalized into the universal shape
     const sol = (await import("./shreds-sol.js")).default;

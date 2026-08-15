@@ -113,16 +113,18 @@
 | ⚡ Entry badge (unsupported crypto → SOL) | `shreds.js` `initShreds` badge |
 | Per-instrument visibility (SUPPORTED set) | `shreds.js` |
 
-## 9b. Equity Shreds (stocks / ETFs / indices — 116 symbols)
+## 9b. Universal Market & Equity Shreds (stocks / ETFs / indices / futures / bonds / forex)
 
 | Feature | Code |
 |---|---|
 | Insider Form 4 prints (EDGAR, keyless, owner/shares/price parsed) | `api/shreds.js` `edgarInsider/tickerToCik` |
 | Options flow via existing crumb auth (P/C, volumes, max pain) | `lib/yahoo.js` `fetchOptions` · `api/shreds.js` |
+| Futures & Commodities flow & ETF options proxy (`ES=F`→`SPY`, `NQ=F`→`QQQ`, `GC=F`→`GLD`, `CL=F`→`USO`) | `api/shreds.js` `OPT_PROXY/equityDecoder` |
+| Bond & Forex flow & options proxies (`TLT`, `IEF`, `EURUSD=X`→`FXE`, `USDJPY=X`→`FXY`) | `api/shreds.js` `OPT_PROXY/equityDecoder` |
 | Unusual contracts (vol ≫ OI, notional, links) | `api/shreds.js` `equityDecoder` |
 | Trade-halts feed (NasdaqTrader RSS, per-symbol) | `api/shreds.js` `haltsFeed` |
-| Equity cards (insider buying, call/put-heavy, halts) + insight | `api/shreds.js` `equityDecoder` |
-| Frontend routing + EQ theme for stock/etf/index cats | `shreds.js` `SUPPORTED/THEME.EQ` |
+| Equity & Futures cards (insider buying, call/put-heavy, momentum, halts) + insight | `api/shreds.js` `equityDecoder` |
+| Frontend routing + EQ/FUT/BOND/FX themes for all CATALOG asset classes | `shreds.js` `SUPPORTED/THEME` |
 
 ## 10. News
 
