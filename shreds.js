@@ -38,6 +38,48 @@ function gaugeColor(kind, value) {
   return value >= 60 ? "#34d399" : value >= 35 ? "#fbbf24" : "#f87171"; // higher = calmer/cheaper
 }
 
+
+function flowMapHtml(d, th) {
+  const fm = d.flowMap;
+  if (!fm) return "";
+  const color = th?.color || "#fbbf24";
+  const wL = 4 + (fm.left.weight ?? 0.5) * 10;
+  const wR = 4 + (fm.right.weight ?? 0.5) * 10;
+  const nL = Math.max(1, Math.round((fm.left.weight ?? 0.5) * 4));
+  const nR = Math.max(1, Math.round((fm.right.weight ?? 0.5) * 4));
+  const parts = (n, col, dur) => Array.from({ length: n }, (_, i) =>
+    `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M115,52 C160,30 220,30 275,52"/></circle>` +
+    `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M365,52 C420,74 480,74 525,52"/></circle>`
+  ).join("");
+  const pL = "#34d399";
+  return `
+  <div class="flow-map">
+    <div class="fm-head">
+      <h3>🔀 Where the money is flowing</h3>
+      <span class="muted" style="font-size:10px">${d.chain} · animated live feed</span>
+    </div>
+    <svg viewBox="0 0 640 115" style="width:100%;height:auto">
+      <defs>
+        <linearGradient id="pipeL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${color}" stop-opacity=".9"/><stop offset="1" stop-color="#8b5cf6" stop-opacity=".9"/></linearGradient>
+        <linearGradient id="pipeR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".9"/><stop offset="1" stop-color="#34d399" stop-opacity=".9"/></linearGradient>
+        <filter id="fmglow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path d="M115,52 C160,30 220,30 275,52" fill="none" stroke="url(#pipeL)" stroke-width="${wL}" stroke-linecap="round" opacity=".55"/>
+      <path d="M365,52 C420,74 480,74 525,52" fill="none" stroke="url(#pipeR)" stroke-width="${wR}" stroke-linecap="round" opacity=".55"/>
+      <g filter="url(#fmglow)">${parts(nL, color, 1.6)}${parts(nR, pL, 1.6)}</g>
+      <circle cx="90" cy="52" r="36" fill="${color}1a" stroke="${color}" stroke-width="2.5"/>
+      <text x="90" y="48" text-anchor="middle" font-size="10.5" font-weight="800" fill="${color}">${fm.left.label}</text>
+      <text x="90" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.left.value}</text>
+      <rect x="272" y="24" width="96" height="56" rx="16" fill="rgba(139,92,246,.15)" stroke="#8b5cf6" stroke-width="2.5" filter="url(#fmglow)"/>
+      <text x="320" y="47" text-anchor="middle" font-size="10" font-weight="800" fill="#c4b5fd">${fm.hub.label}</text>
+      <text x="320" y="63" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.hub.value}</text>
+      <circle cx="550" cy="52" r="36" fill="rgba(52,211,153,.10)" stroke="#34d399" stroke-width="2.5"/>
+      <text x="550" y="48" text-anchor="middle" font-size="10.5" font-weight="800" fill="#34d399">${fm.right.label}</text>
+      <text x="550" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.right.value}</text>
+    </svg>
+  </div>`;
+}
+
 function render() {
   const box = $("shredsPanel");
   if (!box) return;
@@ -64,6 +106,8 @@ function render() {
     <div class="shred-stats">
       ${data.stats.map((s) => `<div class="shred-stat ${s.warn ? "warn" : ""}" style="${th.color ? `--th:${th.color}` : ""}"><span class="n">${s.value}</span><span class="l">${s.label}</span></div>`).join("")}
     </div>
+
+    ${flowMapHtml(data, th)}
 
     <div class="gauge-card">
       <div class="gauge-head"><h3 style="color:${gCol}">${g.label.toUpperCase()}</h3><span class="muted" style="font-size:11px">${g.kind === "bias" ? "flow direction" : g.kind === "gas" ? "gas window" : "network pressure"}</span></div>

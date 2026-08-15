@@ -61,6 +61,11 @@ async function btcDecoder(symbol) {
       { label: "BTC", value: price != null ? `$${price.toLocaleString()}` : "—" },
     ],
     gauge: { value: 100 - pressure, label: gaugeLabel, low: "congested", high: "calm", kind: "pressure" },
+    flowMap: {
+      left: { label: "MEMPOOL", value: `${mem.count.toLocaleString()} tx`, weight: Math.min(1, mvb / 60) },
+      hub: { label: `BLOCK #${block.height}`, value: `${block.tx_count.toLocaleString()} tx` },
+      right: { label: "CONFIRMED", value: `fees ${(mem.total_fee / 1e8).toFixed(3)} BTC pending`, weight: Math.min(1, whales.length / 4 + 0.2) },
+    },
     flows: whales.slice(0, 8),
     activity: [
       { name: "economy", count: fees.economyFee },
@@ -150,6 +155,11 @@ async function evmDecoder(symbol) {
       { label: cfg.native, value: price != null ? `$${price.toLocaleString()}` : "—" },
     ],
     gauge: { value: gaugeVal, label: gaugeLabel, low: "expensive", high: "cheap", kind: "gas" },
+    flowMap: {
+      left: { label: `${cfg.native} MOVED`, value: valueMoved.toLocaleString("en-US", { maximumFractionDigits: 0 }), weight: Math.min(1, totalTx / 400) },
+      hub: { label: "BLOCK", value: `${totalTx.toLocaleString()} tx` },
+      right: { label: "DEX ROUTERS", value: `${routerTotal} calls`, weight: Math.min(1, routerTotal / 30) },
+    },
     flows: whales.slice(0, 8),
     activity: activity.length ? activity : [{ name: "no router calls in block", count: 0 }],
     activityLabel: "DEX routers in block",
@@ -189,6 +199,11 @@ export default async function handler(req, res) {
         { label: "flow scanned", value: usd(cap.volUsd.wSOL + stableVol) },
       ],
       gauge: { value: cap.buyBias, label: cap.biasLabel, low: "sell flow", high: "buy flow", kind: "bias" },
+      flowMap: {
+        left: { label: "SOL SIDE", value: usd(cap.volUsd.wSOL), weight: Math.min(1, cap.volUsd.wSOL / Math.max(1, cap.volUsd.wSOL + stableVol)) },
+        hub: { label: "DEX ROUTER", value: `${cap.dexCalls} calls` },
+        right: { label: "STABLES", value: usd(stableVol), weight: Math.min(1, stableVol / Math.max(1, cap.volUsd.wSOL + stableVol)) },
+      },
       flows: cap.flows.map((f) => ({ ...f, link: `https://solscan.io/tx/${f.sig}` })),
       activity: cap.programs, activityLabel: "DEX programs (multi-slot)",
       cards, providers: cap.providers || [], fetchedAt: cap.fetchedAt,
