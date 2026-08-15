@@ -87,6 +87,13 @@ body {
 .rfilter.active { background: var(--accent); border-color: var(--accent); color: white; }
 .rfilter.up.active { background: var(--up); border-color: var(--up); }
 .rfilter.down.active { background: var(--down); border-color: var(--down); }
+.rfilter.mixed.active { background: #fbbf24; border-color: #fbbf24; color: #1a1205; }
+.rfilter b { font-family: var(--mono); margin-left: 7px; opacity: .85; }
+.fdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; }
+.fdot.buy, .fdot.up { background: var(--up); }
+.fdot.sell, .fdot.down { background: var(--down); }
+.fdot.mixed { background: #fbbf24; }
+.fdot.all { background: var(--accent); }
 .radar-sub { font-size: 11px; color: var(--muted); margin-top: -4px; }
 .radar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .radar-card {

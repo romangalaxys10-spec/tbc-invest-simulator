@@ -31,16 +31,18 @@ export async function loadPackages(force = false) {
 }
 
 let currentType = "all";
-const TYPE_LABELS = { all: "All packages", buy: "🟢 Buy only", sell: "🔴 Sell only", mixed: "⚖ Mixed L/S" };
+const TYPE_LABELS = { all: "All", buy: "Buy only", sell: "Sell only", mixed: "Mixed L/S" };
 
 function render(j) {
   const grid = $("packagesGrid");
   const shown = j.packages.filter((p) => currentType === "all" || p.type === currentType);
   const counts = { all: j.packages.length, buy: j.packages.filter((p) => p.type === "buy").length, sell: j.packages.filter((p) => p.type === "sell").length, mixed: j.packages.filter((p) => p.type === "mixed").length };
-  grid.innerHTML = `
-    <div class="panel pkg-filters" id="pkgFilters">
-      ${Object.entries(TYPE_LABELS).map(([k, label]) => `<button class="filter-btn ${currentType === k ? "active" : ""}" data-t="${k}">${label} <b>${counts[k]}</b></button>`).join("")}
-    </div>` + (shown.length ? shown.map((p) => {
+  const fbox = document.getElementById("pkgFilters") || grid;
+  fbox.innerHTML = `
+      ${Object.entries(TYPE_LABELS).map(([k, label]) => `<button class="rfilter ${k !== "all" ? k : ""} ${currentType === k ? "active" : ""}" data-t="${k}"><i class="fdot ${k}"></i>${label}<b>${counts[k]}</b></button>`).join("")}
+    `;
+  (shown.length ? null : null);
+  const cardsHtml = (shown.length ? shown.map((p) => {
     const corrTxt = p.avgCorr != null ? `${p.avgCorr.toFixed(2)}` : "—";
     const corrGood = p.avgCorr != null && p.avgCorr < 0.6;
     const typeChip = p.type === "buy" ? '<span class="chip good">buy only</span>' : p.type === "sell" ? '<span class="chip bad">sell only</span>' : '<span class="chip warn">mixed L/S</span>';
@@ -89,9 +91,10 @@ function render(j) {
     </div>`;
   }).join("") : '<div class="panel"><div class="empty">No packages of this type right now.</div></div>');
 
-  grid.querySelectorAll(".filter-btn").forEach((b) => {
+  fbox.querySelectorAll(".rfilter").forEach((b) => {
     b.onclick = () => { currentType = b.dataset.t; render(j); };
   });
+  grid.innerHTML = cardsHtml;
   grid.querySelectorAll(".pkg-go").forEach((btn) => {
     btn.onclick = async () => {
       const card = btn.closest(".pkg-card");
