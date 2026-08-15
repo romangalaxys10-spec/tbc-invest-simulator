@@ -170,6 +170,7 @@
 | Feature | Code |
 |---|---|
 | Macro Correlation Matrix & Cross-Asset Heatmap (Equities, Crypto, Yields, Gold, Oil, Forex) | `analysis.js` `viewIntel` · `index.html` `data-a="intel"` |
+| Portfolio Construction & Allocation Blueprint (MPT risk-budgeting framework, correlation dampening, tail-risk drawdown shields, strategic pairing cards & 1-click execution) | `analysis.js` `viewIntel` (`.insight-blueprint-container`) · `styles.css` |
 | Macro Economic Playbook & Global Calendar (Event catalysts, consensus, prior, expected Bullish vs. Bearish triggers, catalyst dates/times, live countdown timers & impact strength scoring) | `analysis.js` `viewEvents` (macroHtml & playbook-grid) · `styles.css` |
 | Latency-free Web Audio synthesizer (Trade fill, TP chord, SL tone, Radar chirp, Tap) | `audio.js` `soundFx` |
 | Tactile vibration haptics on mobile browsers (`navigator.vibrate`) | `audio.js` `vibrate` |
