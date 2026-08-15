@@ -121,6 +121,7 @@ async function getHistory(symbol, entryTs) {
 
 async function selectInstrument(sym) {
   state.symbol = sym;
+  history.replaceState(null, "", `#sym=${encodeURIComponent(sym)}`);
   renderList();
   const inst = CATALOG.find((i) => i.sym === sym);
   els.ccyBadge.textContent = inst.ccy;
@@ -130,6 +131,28 @@ async function selectInstrument(sym) {
   refreshCandles(sym);
   loadAnalysis(sym);
 }
+
+// ---------- deep links: #sym=2513.HK ----------
+function symbolFromHash() {
+  const m = location.hash.match(/^#sym=(.+)$/);
+  if (!m) return null;
+  try {
+    const sym = decodeURIComponent(m[1]);
+    return CATALOG.find((i) => i.sym === sym) ? sym : null;
+  } catch {
+    return null;
+  }
+}
+function activateCategoryFor(sym) {
+  const cat = CATALOG.find((i) => i.sym === sym)?.cat;
+  if (!cat) return;
+  state.cat = cat;
+  els.tabs.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.cat === cat));
+}
+window.addEventListener("hashchange", () => {
+  const sym = symbolFromHash();
+  if (sym && sym !== state.symbol) selectInstrument(sym);
+});
 
 function renderSelected() {
   const inst = CATALOG.find((i) => i.sym === state.symbol);
@@ -146,10 +169,22 @@ function renderSelected() {
         <div class="px">${q && !q.error ? fmtMoney(q.price, q.currency) : "—"}</div>
         <div class="chg ${signCls(chg || 0)}">${chg == null ? "" : `${fmtPct(chg)} today`}</div>
         <button class="btn primary" id="tradeBtn" style="margin-top:10px;width:100%">Trade · virtual</button>
+        <button class="btn" id="shareBtn" style="margin-top:6px;width:100%">🔗 Share link</button>
       </div>
     </div>`;
   const tb = document.getElementById("tradeBtn");
   if (tb) tb.onclick = () => openTradeModal(inst.sym);
+  const sb = document.getElementById("shareBtn");
+  if (sb) sb.onclick = async () => {
+    const url = `${location.origin}${location.pathname}#sym=${encodeURIComponent(inst.sym)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      sb.textContent = "✓ Link copied";
+    } catch {
+      prompt("Copy this instrument link:", url);
+    }
+    setTimeout(() => (sb.textContent = "🔗 Share link"), 1600);
+  };
 }
 
 // ---------- simulation ----------
@@ -462,9 +497,11 @@ navPackages && (navPackages.onclick = () => showView("packages"));
   els.entryDate.value = dstr(nowTs() - 90 * DAY);
   els.entryDate.max = dstr(nowTs());
   els.ccyBadge.textContent = "GBP";
+  const deepSym = symbolFromHash();
+  if (deepSym) activateCategoryFor(deepSym);
   renderList();
   loadQuotes();
-  selectInstrument("TBCG.L");
+  selectInstrument(deepSym || "TBCG.L");
   initAnalysis();
   initPortfolio();
   initTokenBanner();
