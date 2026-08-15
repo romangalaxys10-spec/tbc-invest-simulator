@@ -5,6 +5,58 @@ import { store } from "./store.js";
 
 const $ = (id) => document.getElementById(id);
 let data = null, timer = null, currentSym = null;
+const TICKS_KEY = (chain) => "tbc_shred_ticks_" + chain;
+
+function pushTick(d) {
+  if (!d?.tick) return;
+  try {
+    const k = TICKS_KEY(d.chain);
+    const arr = JSON.parse(localStorage.getItem(k) || "[]");
+    arr.push({ t: Date.now(), g: d.tick.gauge, a: d.tick.a, b: d.tick.b });
+    localStorage.setItem(k, JSON.stringify(arr.slice(-24)));
+  } catch {}
+}
+
+function liveFlowHtml(d) {
+  const tk = d.tick;
+  if (!tk) return "";
+  pushTick(d);
+  let ticks = [];
+  try { ticks = JSON.parse(localStorage.getItem(TICKS_KEY(d.chain)) || "[]"); } catch {}
+  const total = tk.a + tk.b || 1;
+  const aPct = Math.max(6, Math.min(94, Math.round((tk.a / total) * 100)));
+  const fmt = (v) => (v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "k" : String(Math.round(v)));
+  const candles = [];
+  for (let i = 1; i < ticks.length; i++) {
+    const o = ticks[i - 1].g, c = ticks[i].g;
+    const intensity = Math.min(8, ((ticks[i].a + ticks[i].b) / (total || 1)) * 4);
+    candles.push({ o, c, hi: Math.max(o, c) + intensity, lo: Math.min(o, c) - intensity, last: i === ticks.length - 1 });
+  }
+  const gLo = Math.min(...candles.map((x) => x.lo), tk.gauge - 5);
+  const gHi = Math.max(...candles.map((x) => x.hi), tk.gauge + 5);
+  const n = Math.max(candles.length, 1);
+  const W = 640, H = 60, step = (W - 40) / Math.max(n, 12);
+  const bw = Math.max(4, Math.min(14, step - 3));
+  const x = (i) => 20 + i * step + bw / 2;
+  const y = (v) => 6 + (1 - (v - gLo) / (gHi - gLo || 1)) * (H - 12);
+  const candleSvg = candles.map((cd, i) => {
+    const col = cd.c >= cd.o ? "#34d399" : "#f87171";
+    const top = y(Math.max(cd.o, cd.c)), bot = y(Math.min(cd.o, cd.c));
+    return `<g class="${cd.last ? "candle-new" : ""}"><line x1="${x(i)}" x2="${x(i)}" y1="${y(cd.hi)}" y2="${y(cd.lo)}" stroke="${col}" stroke-width="1"/><rect x="${x(i) - bw / 2}" y="${top}" width="${bw}" height="${Math.max(2, bot - top)}" fill="${col}" rx="1"/></g>`;
+  }).join("");
+  const legend = d.chain === "SOL" ? "buy flow rising" : d.chain === "EVM" ? "gas easing / activity up" : "pressure easing";
+  return `
+  <div class="live-flow">
+    <div class="cans">
+      <div class="can buy"><div class="can-liquid" style="height:${aPct}%"></div><span class="can-val">${fmt(tk.a)}</span><span class="can-lbl">${tk.aLabel}</span></div>
+      <div class="can sell"><div class="can-liquid" style="height:${100 - aPct}%"></div><span class="can-val">${fmt(tk.b)}</span><span class="can-lbl">${tk.bLabel}</span></div>
+    </div>
+    <div class="candles">
+      <svg viewBox="0 0 640 60" style="width:100%;height:auto">${candleSvg}</svg>
+      <span class="muted" style="font-size:9.5px">live flow candles · one per refresh (15s) · ${candles.length} tick${candles.length === 1 ? "" : "s"} · green = ${legend}</span>
+    </div>
+  </div>`;
+}
 
 const SUPPORTED = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
 const THEME = {
@@ -153,6 +205,8 @@ function render() {
         ${data.chain === "SOL" && data.providers?.length ? `<h3 style="margin-top:14px">🔌 Providers</h3><div style="display:flex;gap:6px;flex-wrap:wrap">${data.providers.map((p) => `<span class="prov-chip ${p.ok ? "ok" : "bad"}">${p.ok ? "●" : "○"} ${p.host} ${p.ms}ms</span>`).join("")}</div>` : ""}
       </div>
     </div>
+
+    ${liveFlowHtml(data)}
 
     ${data.insight ? `<div class="shred-insight">
       <h3>🧠 What the shreds say</h3>

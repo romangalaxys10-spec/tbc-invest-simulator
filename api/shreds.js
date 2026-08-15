@@ -63,6 +63,11 @@ async function btcDecoder(symbol) {
       { label: "BTC", value: price != null ? `$${price.toLocaleString()}` : "—" },
     ],
     gauge: { value: 100 - pressure, label: gaugeLabel, low: "congested", high: "calm", kind: "pressure" },
+    tick: {
+      a: whales.reduce((sm, w) => sm + w.usd, 0), aLabel: "whale prints $",
+      b: pressure, bLabel: "mempool pressure",
+      gauge: 100 - pressure,
+    },
     flowMap: {
       left: { label: "MEMPOOL", value: `${mem.count.toLocaleString()} tx`, weight: Math.min(1, mvb / 60) },
       hub: { label: `BLOCK #${block.height}`, value: `${block.tx_count.toLocaleString()} tx` },
@@ -165,6 +170,11 @@ async function evmDecoder(symbol) {
       { label: cfg.native, value: price != null ? `$${price.toLocaleString()}` : "—" },
     ],
     gauge: { value: gaugeVal, label: gaugeLabel, low: "expensive", high: "cheap", kind: "gas" },
+    tick: {
+      a: routerTotal, aLabel: "router calls",
+      b: baseFee || 0, bLabel: "gas gwei",
+      gauge: gaugeVal,
+    },
     flowMap: {
       left: { label: `${cfg.native} MOVED`, value: valueMoved.toLocaleString("en-US", { maximumFractionDigits: 0 }), weight: Math.min(1, totalTx / 400) },
       hub: { label: "BLOCK", value: `${totalTx.toLocaleString()} tx` },
@@ -219,6 +229,11 @@ export default async function handler(req, res) {
         { label: "flow scanned", value: usd(cap.volUsd.wSOL + stableVol) },
       ],
       gauge: { value: cap.buyBias, label: cap.biasLabel, low: "sell flow", high: "buy flow", kind: "bias" },
+      tick: {
+        a: stableVol, aLabel: "buy flow $",
+        b: cap.volUsd.wSOL, bLabel: "sell flow $",
+        gauge: cap.buyBias,
+      },
       flowMap: {
         left: { label: "SOL SIDE", value: usd(cap.volUsd.wSOL), weight: Math.min(1, cap.volUsd.wSOL / Math.max(1, cap.volUsd.wSOL + stableVol)) },
         hub: { label: "DEX ROUTER", value: `${cap.dexCalls} calls` },
