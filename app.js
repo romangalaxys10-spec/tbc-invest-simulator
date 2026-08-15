@@ -339,6 +339,18 @@ async function compute() {
 
   drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs: entryC.t });
   els.chartSub.textContent = `${inst.sym} · ${dstr(entryC.t)} → ${dstr(last.t)} · total-return (adj) basis`;
+
+  // inline mini-result right inside the simulator section
+  const inline = document.getElementById("simInlineResult");
+  if (inline) {
+    inline.style.display = "grid";
+    inline.innerHTML = `
+      <div class="ir-cell"><span class="k">Invested</span><b>${fmtMoney(amount, ccy)}</b></div>
+      <div class="ir-arrow">→</div>
+      <div class="ir-cell"><span class="k">Worth now</span><b class="${signCls(plNow)}">${fmtMoney(valueNow, ccy)}</b></div>
+      <div class="ir-cell"><span class="k">P/L</span><b class="${signCls(pctNow)}">${fmtPct(pctNow)}</b></div>
+      <div class="ir-cell goal ${goalReached ? "ok" : ""}"><span class="k">Goal</span><b>${goalReached ? "✓ hit" : (progress * 100).toFixed(0) + "%"}</b></div>`;
+  }
 }
 
 // ---------- chart ----------
@@ -575,5 +587,14 @@ document.addEventListener("DOMContentLoaded", () => {
   initTokenBanner();
   initPatternLab();
   initAlerts();
-  window.addEventListener("show-simulator", () => navSim?.click());
+window.addEventListener("show-simulator", () => navSim?.click());
+document.getElementById("seeResultBtn")?.addEventListener("click", () => {
+  const panel = document.querySelector('[data-section="result"]');
+  if (!panel) return;
+  panel.classList.remove("collapsed");
+  collapse.set("result", false);
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  panel.classList.add("flash");
+  setTimeout(() => panel.classList.remove("flash"), 1600);
+});
 })();
