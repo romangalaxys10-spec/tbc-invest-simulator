@@ -24,7 +24,8 @@ function liveFlowHtml(d) {
   let ticks = [];
   try { ticks = JSON.parse(localStorage.getItem(TICKS_KEY(d.chain)) || "[]"); } catch {}
   const total = tk.a + tk.b || 1;
-  const aPct = Math.max(6, Math.min(94, Math.round((tk.a / total) * 100)));
+  const aPct = Math.max(4, Math.min(96, Math.round((tk.a / total) * 100)));
+  const bPct = 100 - aPct;
   const fmt = (v) => (v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "k" : String(Math.round(v)));
   const candles = [];
   for (let i = 1; i < ticks.length; i++) {
@@ -47,92 +48,29 @@ function liveFlowHtml(d) {
   const legend = d.chain === "SOL" ? "buy flow rising" : d.chain === "EVM" ? "gas easing / activity up" : "pressure easing";
   return `
   <div class="live-flow">
-    <div class="cans">
-      <div class="can buy"><div class="can-liquid" style="height:${aPct}%"></div><span class="can-val">${fmt(tk.a)}</span><span class="can-lbl">${tk.aLabel}</span></div>
-      <div class="can sell"><div class="can-liquid" style="height:${100 - aPct}%"></div><span class="can-val">${fmt(tk.b)}</span><span class="can-lbl">${tk.bLabel}</span></div>
+    <div class="lf-title">🫀 Live pulse <span class="muted">— buy vs sell pressure, refreshed every 15s</span></div>
+    <div class="lf-body">
+      <div class="cans">
+        <div class="can-wrap buy-side">
+          <div class="can buy"><div class="can-liquid" style="height:${aPct}%"></div></div>
+          <b class="pos">${aPct}%</b><span class="muted">${fmt(tk.a)} ${tk.aLabel}</span>
+        </div>
+        <div class="can-wrap sell-side">
+          <div class="can sell"><div class="can-liquid" style="height:${bPct}%"></div></div>
+          <b class="neg">${bPct}%</b><span class="muted">${fmt(tk.b)} ${tk.bLabel}</span>
+        </div>
+      </div>
+      <div class="lf-mid">
+        <span class="pos">BUY ${aPct}%</span>
+        <div class="split-bar"><div class="split-buy" style="width:${aPct}%"></div><div class="split-sell" style="width:${bPct}%"></div></div>
+        <span class="neg">SELL ${bPct}%</span>
+        <span class="muted lf-hint">ratio ${tk.a && tk.b ? (tk.a / tk.b).toFixed(2) : "—"} : 1 · green = ${legend}</span>
+      </div>
+      <div class="candles">
+        <svg viewBox="0 0 640 60" style="width:100%;height:auto">${candleSvg}</svg>
+        <span class="muted" style="font-size:9.5px">flow candles · ${candles.length} tick${candles.length === 1 ? "" : "s"} (15s each)</span>
+      </div>
     </div>
-    <div class="candles">
-      <svg viewBox="0 0 640 60" style="width:100%;height:auto">${candleSvg}</svg>
-      <span class="muted" style="font-size:9.5px">live flow candles · one per refresh (15s) · ${candles.length} tick${candles.length === 1 ? "" : "s"} · green = ${legend}</span>
-    </div>
-  </div>`;
-}
-
-const SUPPORTED = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
-const THEME = {
-  BTC: { color: "#f7931a", name: "Bitcoin" },
-  EVM: { color: "#627eea", name: "EVM" },
-  SOL: { color: "#14f195", name: "Solana" },
-};
-
-const short = (a) => (a && a.length > 10 ? a.slice(0, 4) + "…" + a.slice(-4) : a || "—");
-const usd = (v) => "$" + Math.round(v).toLocaleString("en-US");
-
-const PKEY = "tbc_shred_providers";
-const getProviders = () => { try { return JSON.parse(localStorage.getItem(PKEY)) || []; } catch { return []; } };
-const setProviders = (list) => localStorage.setItem(PKEY, JSON.stringify(list));
-
-async function loadShreds(sym) {
-  if (sym !== currentSym) { data = null; currentSym = sym; render(); }
-  try {
-    const r = await fetch("/api/shreds?symbol=" + encodeURIComponent(sym), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol: sym, providers: getProviders() }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    data = j;
-  } catch (e) {
-    data = { error: e.message };
-  }
-  render();
-}
-
-function gaugeColor(kind, value) {
-  if (kind === "bias") return value >= 55 ? "#34d399" : value <= 45 ? "#f87171" : "#fbbf24";
-  return value >= 60 ? "#34d399" : value >= 35 ? "#fbbf24" : "#f87171"; // higher = calmer/cheaper
-}
-
-
-function flowMapHtml(d, th) {
-  const fm = d.flowMap;
-  if (!fm) return "";
-  const color = th?.color || "#fbbf24";
-  const wL = 4 + (fm.left.weight ?? 0.5) * 10;
-  const wR = 4 + (fm.right.weight ?? 0.5) * 10;
-  const nL = Math.max(1, Math.round((fm.left.weight ?? 0.5) * 4));
-  const nR = Math.max(1, Math.round((fm.right.weight ?? 0.5) * 4));
-  const parts = (n, col, dur) => Array.from({ length: n }, (_, i) =>
-    `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M115,52 C160,30 220,30 275,52"/></circle>` +
-    `<circle r="3.4" fill="${col}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M365,52 C420,74 480,74 525,52"/></circle>`
-  ).join("");
-  const pL = "#34d399";
-  return `
-  <div class="flow-map">
-    <div class="fm-head">
-      <h3>🔀 Where the money is flowing</h3>
-      <span class="muted" style="font-size:10px">${d.chain} · animated live feed</span>
-    </div>
-    <svg viewBox="0 0 640 115" style="width:100%;height:auto">
-      <defs>
-        <linearGradient id="pipeL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${color}" stop-opacity=".9"/><stop offset="1" stop-color="#8b5cf6" stop-opacity=".9"/></linearGradient>
-        <linearGradient id="pipeR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".9"/><stop offset="1" stop-color="#34d399" stop-opacity=".9"/></linearGradient>
-        <filter id="fmglow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      <path d="M115,52 C160,30 220,30 275,52" fill="none" stroke="url(#pipeL)" stroke-width="${wL}" stroke-linecap="round" opacity=".55"/>
-      <path d="M365,52 C420,74 480,74 525,52" fill="none" stroke="url(#pipeR)" stroke-width="${wR}" stroke-linecap="round" opacity=".55"/>
-      <g filter="url(#fmglow)">${parts(nL, color, 1.6)}${parts(nR, pL, 1.6)}</g>
-      <circle cx="90" cy="52" r="36" fill="${color}1a" stroke="${color}" stroke-width="2.5"/>
-      <text x="90" y="48" text-anchor="middle" font-size="10.5" font-weight="800" fill="${color}">${fm.left.label}</text>
-      <text x="90" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.left.value}</text>
-      <rect x="272" y="24" width="96" height="56" rx="16" fill="rgba(139,92,246,.15)" stroke="#8b5cf6" stroke-width="2.5" filter="url(#fmglow)"/>
-      <text x="320" y="47" text-anchor="middle" font-size="10" font-weight="800" fill="#c4b5fd">${fm.hub.label}</text>
-      <text x="320" y="63" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.hub.value}</text>
-      <circle cx="550" cy="52" r="36" fill="rgba(52,211,153,.10)" stroke="#34d399" stroke-width="2.5"/>
-      <text x="550" y="48" text-anchor="middle" font-size="10.5" font-weight="800" fill="#34d399">${fm.right.label}</text>
-      <text x="550" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${fm.right.value}</text>
-    </svg>
   </div>`;
 }
 
