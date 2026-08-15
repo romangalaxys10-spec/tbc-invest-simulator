@@ -257,11 +257,26 @@ async function getQuote(sym) {
 
 async function getFx(ccy) {
   if (ccy === "USD") return 1;
+  if (ccy === "USX" || ccy === "USs") return 0.01; // some futures quote in US cents
   const c = quoteCache.fx[ccy];
   if (c && Date.now() - c.ts < 300000) return c.rate;
-  const j = await fetch(`/api/history?symbol=${ccy}USD=X&period1=${Math.floor(Date.now() / 1000) - 5 * 86400}&period2=${Math.floor(Date.now() / 1000) + 86400}`).then((r) => r.json());
-  const rate = j.price;
-  if (!rate) throw new Error(`FX ${ccy}USD unavailable`);
+  let rate;
+  try {
+    const j = await fetch(`/api/history?symbol=${ccy}USD=X&period1=${Math.floor(Date.now() / 1000) - 5 * 86400}&period2=${Math.floor(Date.now() / 1000) + 86400}`).then((r) => r.json());
+    rate = j.price;
+  } catch {
+    rate = null;
+  }
+  if (!rate) {
+    // some pairs only exist as USDXXX — invert
+    try {
+      const j = await fetch(`/api/history?symbol=USD${ccy}=X&period1=${Math.floor(Date.now() / 1000) - 5 * 86400}&period2=${Math.floor(Date.now() / 1000) + 86400}`).then((r) => r.json());
+      rate = j.price ? 1 / j.price : null;
+    } catch {
+      rate = null;
+    }
+  }
+  if (!rate) throw new Error(`FX rate for ${ccy} unavailable`);
   quoteCache.fx[ccy] = { rate, ts: Date.now() };
   return rate;
 }
@@ -293,12 +308,20 @@ export async function openTradeModal(sym, opts = {}) {
       <div class="modal-actions"><button class="btn" onclick="document.getElementById('tradeModal').style.display='none'">Close</button></div>`;
     return;
   }
-  const fx = await getFx(q.currency);
-  const priceUSD = q.price * fx;
-  if (opts.orderType === "auto") {
-    // smart selection: buy above market / sell below market = stop; otherwise limit
-    const t = opts.trigger ?? priceUSD;
-    opts.orderType = opts.side === "sell" ? (t <= priceUSD ? "stop" : "limit") : (t >= priceUSD ? "stop" : "limit");
+  let fx, priceUSD;
+  try {
+    fx = await getFx(q.currency);
+    priceUSD = q.price * fx;
+    if (opts.orderType === "auto") {
+      // smart selection: buy above market / sell below market = stop; otherwise limit
+      const t = opts.trigger ?? priceUSD;
+      opts.orderType = opts.side === "sell" ? (t <= priceUSD ? "stop" : "limit") : (t >= priceUSD ? "stop" : "limit");
+    }
+  } catch (e) {
+    body.innerHTML = `<div class="notice">Live price unavailable: ${e.message}</div>
+      <div class="modal-actions"><button class="btn" id="fxClose">Close</button></div>`;
+    $("fxClose").onclick = closeTradeModal;
+    return;
   }
   const S = {
     side: opts.side === "sell" ? "sell" : "buy",
