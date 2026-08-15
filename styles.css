@@ -14,6 +14,16 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+input, select, textarea {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  color-scheme: dark; font-family: inherit;
+}
+input::placeholder { color: var(--muted); }
+input:focus, select:focus, textarea:focus { outline: 1.5px solid var(--accent); border-color: var(--accent); }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); cursor: pointer; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { filter: invert(0.7); opacity: .6; }
+input[type="search"]::-webkit-search-cancel-button { filter: invert(0.7); }
 body {
   background:
     radial-gradient(1100px 500px at 85% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
@@ -222,8 +232,11 @@ body {
   padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--panel-2); color: var(--text); font-size: 14px; width: 100%;
   color-scheme: dark;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.25);
+  transition: border-color .15s, box-shadow .15s;
 }
-.controls input:focus { outline: 1.5px solid var(--accent); }
+.controls input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,.18), inset 0 1px 3px rgba(0,0,0,.25); }
+.controls label { text-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .amount-row { position: relative; }
 .ccy-badge {
   position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
@@ -447,6 +460,14 @@ label[for="tradeTrigger"], #triggerWrap { display: flex; flex-direction: column;
 .seg button.active { background: var(--accent); color: white; }
 .seg button.active.sell { background: var(--down); }
 .pat-exec { width: 100%; }
+.exit-presets { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+.exit-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 7px;
+}
+.exit-row.filled { opacity: .55; border-color: rgba(52,211,153,.4); }
+.exit-row input { width: 90px; padding: 7px 9px; border-radius: 8px; font-size: 13px; font-family: var(--mono); }
+.exit-actions { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
 
 /* ---------- candlestick chart ---------- */
 .chart-mode-tabs { display: flex; gap: 5px; }

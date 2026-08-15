@@ -238,6 +238,7 @@ const money = (v) => new Intl.NumberFormat("en-US", { style: "currency", currenc
 const pct = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2)}%`;
 const cls = (v) => (v > 0 ? "pos" : v < 0 ? "neg" : "muted");
 const dstr = (ts) => new Date(ts).toISOString().slice(0, 10);
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 // ---------- live prices & FX ----------
 async function fetchQuote(sym) {
@@ -578,6 +579,125 @@ async function checkLiquidations(views) {
   }
 }
 
+// ---------- exit ladders (take-profit / scaled exits) ----------
+export function openExitsModal(posId) {
+  const p = pf.positions.find((x) => x.id === posId);
+  const overlay = document.getElementById("exitsModal");
+  const body = document.getElementById("exitsBody");
+  if (!p) return;
+  overlay.style.display = "grid";
+  const isShort = p.units < 0;
+  const render = async () => {
+    let live = p.avgCost;
+    try { const q = await getQuote(p.sym); live = q.price * (await getFx(p.ccy)); } catch {}
+    const exits = p.exits || [];
+    const totalPct = exits.filter((e) => !e.filled).reduce((s, e) => s + e.portion, 0);
+    body.innerHTML = `
+      <h3>🎯 Exit plan — ${p.sym}</h3>
+      <div class="sub">${isShort ? "Short" : "Long"} ${Math.abs(p.units).toFixed(4)} units @ avg ${money(p.avgCost)} · live ${money(live)}</div>
+      <div class="exit-presets">
+        <button class="btn small" data-preset="ladder">3-step TP ladder (+10/+20/+30%)</button>
+        <button class="btn small" data-preset="half">Sell 50% at +15%, rest at +35%</button>
+        <button class="btn small" data-preset="stop">Stop-loss at −10%</button>
+      </div>
+      <div id="exitRows">
+        ${exits.length ? exits.map((e, i) => `
+          <div class="exit-row ${e.filled ? "filled" : ""}">
+            <input type="number" class="ex-portion" data-i="${i}" value="${Math.round(e.portion * 100)}" min="1" max="100" step="1" /> <span class="muted">%</span>
+            <span class="muted">at</span>
+            <input type="number" class="ex-price" data-i="${i}" value="${e.price.toFixed(2)}" step="any" />
+            <span class="muted">${e.dir === "above" ? "▲" : "▼"} ${e.filled ? "✓ filled" + (e.filledAt ? " " + new Date(e.filledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "") : ""}</span>
+            <button class="btn small danger ex-del" data-i="${i}" ${e.filled ? "disabled" : ""}>✕</button>
+          </div>`).join("") : `<p class="hint">No exit levels yet. Add ladder steps — e.g. sell 20% at +10%, 30% at +20%, 50% at +35%.</p>`}
+      </div>
+      <div class="exit-actions">
+        <button class="btn small" id="exAdd">+ Add level</button>
+        <span class="muted" style="font-size:11.5px" id="exTotal">${totalPct > 1.001 ? '<span class="neg">over 100%!</span>' : `${Math.round(totalPct * 100)}% of position allocated`}</span>
+      </div>
+      <div class="summary-box">
+        Levels above live price trigger on the way <b>up</b> (${isShort ? "stop-loss for the short" : "take-profit"}); levels below trigger on the way <b>down</b> (${isShort ? "take-profit" : "stop-loss"}).
+        Levels auto-execute on every price refresh &amp; hourly scan, then save to your token.
+      </div>
+      <div class="modal-actions">
+        <button class="btn small danger" id="exClear">Clear all</button>
+        <button class="btn" id="exCancel">Cancel</button>
+        <button class="btn primary" id="exSave" ${totalPct > 1.001 ? "disabled" : ""}>Save plan</button>
+      </div>`;
+
+    body.querySelectorAll(".exit-presets [data-preset]").forEach((b) => {
+      b.onclick = () => {
+        const presets = {
+          ladder: [[1 / 3, 1.10], [1 / 3, 1.20], [0.34, 1.30]],
+          half: [[0.5, 1.15], [0.5, 1.35]],
+          stop: [[1, 0.90]],
+        };
+        p.exits = presets[b.dataset.preset].map(([portion, mult]) => ({
+          id: crypto.randomUUID?.() || String(Math.random()),
+          portion, price: +(live * mult).toFixed(2),
+          dir: mult >= 1 ? "above" : "below", filled: null,
+        }));
+        save();
+        render();
+      };
+    });
+    body.querySelectorAll(".ex-portion").forEach((el) => el.onchange = () => {
+      const e = p.exits[+el.dataset.i]; if (e && !e.filled) e.portion = clamp01(Number(el.value) / 100 || 0);
+      save(); render();
+    });
+    body.querySelectorAll(".ex-price").forEach((el) => el.onchange = () => {
+      const e = p.exits[+el.dataset.i];
+      if (e && !e.filled) {
+        e.price = Number(el.value) || e.price;
+        e.dir = e.price >= live ? "above" : "below";
+      }
+      save(); render();
+    });
+    body.querySelectorAll(".ex-del").forEach((el) => el.onclick = () => {
+      p.exits.splice(+el.dataset.i, 1); save(); render();
+    });
+    body.querySelector("#exAdd").onclick = () => {
+      p.exits = p.exits || [];
+      p.exits.push({ id: crypto.randomUUID?.() || String(Math.random()), portion: 0.2, price: +(live * 1.1).toFixed(2), dir: "above", filled: null });
+      save(); render();
+    };
+    body.querySelector("#exClear").onclick = () => { p.exits = []; save(); render(); };
+    body.querySelector("#exCancel").onclick = () => (overlay.style.display = "none");
+    body.querySelector("#exSave").onclick = () => { save(); overlay.style.display = "none"; renderPortfolio(); };
+  };
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
+  render();
+}
+
+async function processExits(views) {
+  for (const v of views) {
+    const p = pf.positions.find((x) => x.id === v.id);
+    if (!p?.exits?.length) continue;
+    for (const lvl of p.exits) {
+      if (lvl.filled || lvl.price == null) continue;
+      const hit = lvl.dir === "above" ? v.priceUSD >= lvl.price : v.priceUSD <= lvl.price;
+      if (!hit) continue;
+      const pos = pf.positions.find((x) => x.id === p.id);
+      if (!pos) break;
+      const units = Math.abs(pos.units) * Math.min(1, lvl.portion);
+      if (units < 1e-9) { lvl.filled = Date.now(); continue; }
+      const px = lvl.price;
+      if (pos.units > 0) {
+        pf.cash += units * px;
+        pos.units -= units;
+        const realized = units * (px - pos.avgCost);
+        pf.history.unshift({ ts: Date.now(), type: "exit", sym: pos.sym, units, priceUSD: px, amount: units * px, realized, ccy: pos.ccy, note: `Exit ${Math.round(lvl.portion * 100)}% @ ${px.toFixed(2)}` });
+      } else {
+        pf.cash -= units * px;
+        pos.units += units;
+        const realized = units * (pos.avgCost - px);
+        pf.history.unshift({ ts: Date.now(), type: "exit", sym: pos.sym, units, priceUSD: px, amount: units * px, realized, ccy: pos.ccy, note: `Exit ${Math.round(lvl.portion * 100)}% of short @ ${px.toFixed(2)}` });
+      }
+      lvl.filled = Date.now();
+      if (Math.abs(pos.units) < 1e-6) pf.positions = pf.positions.filter((x) => x.id !== pos.id);
+    }
+  }
+}
+
 export function closeTradeModal() {
   $("tradeModal").style.display = "none";
 }
@@ -670,6 +790,7 @@ export async function renderPortfolio() {
   const views = await Promise.all(pf.positions.map(positionView).map((p) => p.catch(() => null)));
   let ok = views.filter(Boolean);
   await checkLiquidations(ok);
+  await processExits(ok);
   if (pf.positions.length !== ok.length) {
     const views2 = await Promise.all(pf.positions.map(positionView).map((p) => p.catch(() => null)));
     ok = views2.filter(Boolean);
@@ -707,6 +828,7 @@ export async function renderPortfolio() {
           <td class="${cls(v.pl)}">${money(v.pl)}<br><span style="font-size:11px">${pct(v.plPct)}</span></td>
           <td>${v.dayPl == null ? '<span class="chip neutral">new ✨</span>' : `<span class="${cls(v.dayPl)}">${money(v.dayPl)}</span>`}</td>
           <td style="text-align:right;white-space:nowrap">
+            <button class="btn small" data-exits="${p.id}">🎯${p.exits?.length ? ` ${p.exits.filter((e) => e.filled).length}/${p.exits.length}` : ""}</button>
             <button class="btn small" data-sell50="${p.id}">Sell 50%</button>
             <button class="btn small danger" data-sell="${p.id}">Close</button>
           </td>
@@ -715,6 +837,7 @@ export async function renderPortfolio() {
     </table>`;
     table.querySelectorAll("[data-sell]").forEach((b) => (b.onclick = () => sellPosition(b.dataset.sell, 1)));
     table.querySelectorAll("[data-sell50]").forEach((b) => (b.onclick = () => sellPosition(b.dataset.sell50, 0.5)));
+    table.querySelectorAll("[data-exits]").forEach((b) => (b.onclick = () => openExitsModal(b.dataset.exits)));
   }
 
   const ordersBox = document.getElementById("ordersTable");
@@ -750,7 +873,8 @@ export async function renderPortfolio() {
       <tr><th>Date</th><th>Type</th><th>Instrument</th><th>Units</th><th>Price (USD)</th><th>Amount</th><th>Realized P/L</th></tr>
       ${pf.history.map((h) => `<tr>
         <td>${dstr(h.ts)}</td>
-        <td>${h.type === "buy" ? '<span class="chip good">BUY</span>' : h.type === "short" ? '<span class="chip bad">SHORT</span>' : h.type === "liquidation" ? '<span class="chip bad">LIQ</span>' : '<span class="chip bad">SELL</span>'}</td>
+        <td>${h.type === "buy" ? '<span class="chip good">BUY</span>' : h.type === "short" ? '<span class="chip bad">SHORT</span>' : h.type === "liquidation" ? '<span class="chip bad">LIQ</span>' : h.type === "exit" ? '<span class="chip warn">EXIT</span>' : '<span class="chip bad">SELL</span>'}${h.note ? `<br><span class="muted" style="font-size:10px;font-family:Inter">${h.note}</span>` : ""}</td>
+        ${""}
         <td><b>${h.sym}</b></td>
         <td>${h.units.toFixed(4)}</td>
         <td>${money(h.priceUSD)}</td>
