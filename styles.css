@@ -1406,3 +1406,80 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted);
 }
 
+
+/* ---------- Per-Token Preferences & Broker Settings Modals ---------- */
+.prefs-btn-chip, .broker-btn-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); padding: 5px 11px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; cursor: pointer; transition: .15s;
+}
+.prefs-btn-chip:hover, .broker-btn-chip:hover {
+  border-color: var(--accent); color: var(--accent-2);
+}
+.prefs-btn-chip.active {
+  background: rgba(139, 92, 246, 0.16); border-color: var(--accent); color: var(--accent-2);
+}
+.broker-btn-chip.active {
+  background: rgba(52, 211, 153, 0.16); border-color: var(--up); color: var(--up);
+}
+
+.prefs-modal, .broker-modal {
+  width: min(580px, 94vw); max-height: 88vh; overflow-y: auto; padding: 22px 24px;
+}
+.prefs-category-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 12px 0 16px;
+}
+.prefs-cat-card {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; cursor: pointer; transition: .12s;
+  font-size: 12px; font-weight: 600;
+}
+.prefs-cat-card:hover { border-color: var(--accent); }
+.prefs-cat-card input[type="checkbox"] { cursor: pointer; }
+
+.prefs-inst-list {
+  display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 8px;
+}
+.prefs-inst-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,.02);
+}
+.prefs-inst-row:hover { background: rgba(255,255,255,.05); }
+.prefs-inst-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.prefs-inst-sym { font-weight: 700; font-size: 12.5px; font-family: var(--mono); }
+.prefs-inst-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+
+.broker-field {
+  display: flex; flex-direction: column; gap: 6px; margin: 12px 0;
+}
+.broker-field label {
+  font-size: 12px; font-weight: 700; color: var(--text); display: flex; justify-content: space-between;
+}
+.broker-field input, .broker-field select {
+  padding: 9px 12px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font-size: 13px;
+}
+.broker-status-card {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px;
+  padding: 10px 14px; margin: 10px 0 14px;
+}
+.broker-status-card.connected {
+  border-color: rgba(52, 211, 153, 0.4); background: rgba(52, 211, 153, 0.08);
+}
+
+.asset-tabs {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.tab-filter-btn {
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--muted); border-radius: 999px; padding: 6px 12px;
+  font-size: 11.5px; font-weight: 700; cursor: pointer; transition: .15s;
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
+}
+.tab-filter-btn:hover {
+  border-color: var(--accent); color: var(--accent-2);
+}

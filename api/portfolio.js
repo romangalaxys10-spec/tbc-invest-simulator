@@ -42,6 +42,20 @@ export default async function handler(req, res) {
         positions: portfolio.positions.slice(0, 100),
         history: portfolio.history.slice(0, 300),
         orders: (portfolio.orders || []).slice(0, 100),
+        prefs: portfolio.prefs && typeof portfolio.prefs === "object" ? {
+          hiddenCategories: Array.isArray(portfolio.prefs.hiddenCategories) ? portfolio.prefs.hiddenCategories.filter((c) => typeof c === "string").slice(0, 20) : [],
+          hiddenSymbols: Array.isArray(portfolio.prefs.hiddenSymbols) ? portfolio.prefs.hiddenSymbols.filter((s) => typeof s === "string").slice(0, 500) : [],
+        } : null,
+        broker: portfolio.broker && typeof portfolio.broker === "object" ? {
+          provider: typeof portfolio.broker.provider === "string" ? portfolio.broker.provider.slice(0, 40) : "custom_api",
+          name: typeof portfolio.broker.name === "string" ? portfolio.broker.name.slice(0, 50) : "",
+          apiEndpoint: typeof portfolio.broker.apiEndpoint === "string" ? portfolio.broker.apiEndpoint.slice(0, 200) : "",
+          apiKey: typeof portfolio.broker.apiKey === "string" ? portfolio.broker.apiKey.slice(0, 150) : "",
+          apiSecret: typeof portfolio.broker.apiSecret === "string" ? portfolio.broker.apiSecret.slice(0, 150) : "",
+          accountId: typeof portfolio.broker.accountId === "string" ? portfolio.broker.accountId.slice(0, 80) : "",
+          sandbox: portfolio.broker.sandbox !== false,
+          enabled: Boolean(portfolio.broker.enabled),
+        } : null,
         telegram: portfolio.telegram && typeof portfolio.telegram === "object" ? {
           botToken: typeof portfolio.telegram.botToken === "string" ? portfolio.telegram.botToken.slice(0, 100) : "",
           chatId: typeof portfolio.telegram.chatId === "string" ? portfolio.telegram.chatId.slice(0, 50) : "",

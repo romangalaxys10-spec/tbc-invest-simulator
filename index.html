@@ -34,14 +34,15 @@
   <nav class="asset-tabs" aria-label="Instrument categories">
     <div class="tabs" id="tabs">
       <button data-cat="stock" class="active">Stocks</button>
-        <button data-cat="etf">ETFs</button>
-        <button data-cat="bond">Bonds</button>
-        <button data-cat="futures">Futures</button>
-        <button data-cat="crypto">Crypto</button>
-        <button data-cat="forex">Forex</button>
+      <button data-cat="etf">ETFs</button>
+      <button data-cat="bond">Bonds</button>
+      <button data-cat="futures">Futures</button>
+      <button data-cat="crypto">Crypto</button>
+      <button data-cat="forex">Forex</button>
       <button data-cat="index">Indices</button>
       <button data-cat="polymarket">🔮 Polymarket</button>
     </div>
+    <button class="tab-filter-btn" id="tabFilterBtn" title="Customize visible market groups and specific instruments">⚙️ Filter</button>
   </nav>
 
   <main class="layout">
@@ -275,6 +276,16 @@
   <!-- Telegram Bot Notifications modal -->
   <div class="modal-overlay" id="telegramModal" style="display:none">
     <div class="modal telegram-modal" id="telegramBody"></div>
+  </div>
+
+  <!-- Instrument & Category Preferences Modal -->
+  <div class="modal-overlay" id="prefsModal" style="display:none">
+    <div class="modal prefs-modal" id="prefsBody"></div>
+  </div>
+
+  <!-- External Broker API Connector Modal -->
+  <div class="modal-overlay" id="brokerModal" style="display:none">
+    <div class="modal broker-modal" id="brokerBody"></div>
   </div>
 
   <script type="module" src="shreds.js"></script>

@@ -286,3 +286,20 @@ export const CATALOG = [
 ];
 
 export const CATEGORY_LABELS = { stock: "Stocks", etf: "ETFs", bond: "Bonds", futures: "Futures", crypto: "Crypto", forex: "Forex", index: "Indices", polymarket: "Polymarket" };
+
+// Per-token preferences helper for filtering categories and instruments
+export function getFilteredCatalog(prefs = null) {
+  if (!prefs) return CATALOG;
+  const hiddenCats = new Set(Array.isArray(prefs.hiddenCategories) ? prefs.hiddenCategories : []);
+  const hiddenSyms = new Set(Array.isArray(prefs.hiddenSymbols) ? prefs.hiddenSymbols : []);
+  return CATALOG.filter((inst) => !hiddenCats.has(inst.cat) && !hiddenSyms.has(inst.sym));
+}
+
+export function getVisibleCategories(prefs = null) {
+  const hiddenCats = new Set(Array.isArray(prefs?.hiddenCategories) ? prefs.hiddenCategories : []);
+  const out = {};
+  for (const [k, v] of Object.entries(CATEGORY_LABELS)) {
+    if (!hiddenCats.has(k)) out[k] = v;
+  }
+  return out;
+}

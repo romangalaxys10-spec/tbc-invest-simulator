@@ -1,8 +1,9 @@
 // Virtual portfolio: paper trades executed at live prices, stored in localStorage.
 // Base currency: USD. GBP instruments converted at live FX (GBPUSD=X).
 
-import { CATALOG } from "./instruments.js";
+import { CATALOG, CATEGORY_LABELS, getFilteredCatalog, getVisibleCategories } from "./instruments.js";
 import { soundFx } from "./audio.js";
+import { brokerManager } from "./broker.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "tbc_portfolio_v2";
@@ -239,6 +240,369 @@ export function openTelegramModal() {
   };
 }
 
+// ---------- Per-token preferences & broker configuration ----------
+export function getPrefs() {
+  if (pf?.prefs && typeof pf.prefs === "object") {
+    return pf.prefs;
+  }
+  try {
+    return JSON.parse(localStorage.getItem("tbc_inst_prefs") || "null") || { hiddenCategories: [], hiddenSymbols: [] };
+  } catch {
+    return { hiddenCategories: [], hiddenSymbols: [] };
+  }
+}
+
+export function savePrefs(prefs) {
+  pf.prefs = prefs;
+  localStorage.setItem("tbc_inst_prefs", JSON.stringify(prefs));
+  save();
+  window.dispatchEvent(new CustomEvent("tbc-prefs-changed"));
+}
+
+export function openPrefsModal() {
+  const overlay = document.getElementById("prefsModal");
+  const body = document.getElementById("prefsBody");
+  if (!overlay || !body) return;
+
+  const currentPrefs = getPrefs();
+  const hiddenCats = new Set(Array.isArray(currentPrefs.hiddenCategories) ? currentPrefs.hiddenCategories : []);
+  const hiddenSyms = new Set(Array.isArray(currentPrefs.hiddenSymbols) ? currentPrefs.hiddenSymbols : []);
+
+  let activeFilterCat = "all";
+  let filterSearch = "";
+
+  const render = () => {
+    const totalInst = CATALOG.length;
+    const visibleInst = CATALOG.filter((i) => !hiddenCats.has(i.cat) && !hiddenSyms.has(i.sym)).length;
+
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <h3 style="margin:0">⚙️ Instrument &amp; Category Filters</h3>
+        <span class="chip neutral" style="font-size:11px">${visibleInst}/${totalInst} visible</span>
+      </div>
+      <div class="sub">Customise which market groups and specific tickers appear in your terminal. ${cloudToken ? `Saved to token <code>••••${cloudToken.slice(-4)}</code>` : "Saved to your local profile"}</div>
+
+      <div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--text)">1. Toggle Entire Market Groups:</div>
+      <div class="prefs-category-grid">
+        ${Object.entries(CATEGORY_LABELS).map(([k, label]) => {
+          const isVisible = !hiddenCats.has(k);
+          return `
+            <label class="prefs-cat-card" style="${isVisible ? "border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.06)" : "opacity:0.6"}">
+              <input type="checkbox" class="prefs-cat-chk" data-cat="${k}" ${isVisible ? "checked" : ""}>
+              <span>${k === "polymarket" ? "🔮 " : ""}${label}</span>
+            </label>`;
+        }).join("")}
+      </div>
+
+      <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">2. Granular Instrument Filter:</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn small" id="prefsSelAll">Show all</button>
+          <button class="btn small" id="prefsDeselAll">Hide all</button>
+          <button class="btn small danger" id="prefsReset">Reset</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin:10px 0 8px">
+        <select id="prefsCatFilter" style="padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:12px">
+          <option value="all" ${activeFilterCat === "all" ? "selected" : ""}>All Categories (${totalInst})</option>
+          ${Object.entries(CATEGORY_LABELS).map(([k, v]) => `
+            <option value="${k}" ${activeFilterCat === k ? "selected" : ""}>${v} (${CATALOG.filter((i) => i.cat === k).length})</option>
+          `).join("")}
+        </select>
+        <input type="search" id="prefsSearch" placeholder="Search ticker or name…" value="${filterSearch}" style="flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:12px" autocomplete="off" />
+      </div>
+
+      <div class="prefs-inst-list" id="prefsInstList">
+        ${renderInstRows()}
+      </div>
+
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn" id="prefsCancelBtn">Cancel</button>
+        <button class="btn primary" id="prefsSaveBtn">Save &amp; Apply</button>
+      </div>`;
+
+    attachEvents();
+  };
+
+  const renderInstRows = () => {
+    const q = filterSearch.trim().toLowerCase();
+    const list = CATALOG.filter((i) => {
+      if (activeFilterCat !== "all" && i.cat !== activeFilterCat) return false;
+      if (q && !i.sym.toLowerCase().includes(q) && !i.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    if (!list.length) return `<div class="empty" style="padding:16px">No instruments match the search filter.</div>`;
+
+    return list.map((inst) => {
+      const isVisible = !hiddenSyms.has(inst.sym) && !hiddenCats.has(inst.cat);
+      return `
+        <label class="prefs-inst-row">
+          <div class="prefs-inst-meta">
+            <input type="checkbox" class="prefs-sym-chk" data-sym="${inst.sym}" ${isVisible ? "checked" : ""}>
+            <span class="prefs-inst-sym">${inst.sym}</span>
+            <span class="chip neutral" style="font-size:10px;padding:1px 6px">${CATEGORY_LABELS[inst.cat] || inst.cat}</span>
+            <span class="prefs-inst-name" title="${inst.name}">${inst.name}</span>
+          </div>
+        </label>`;
+    }).join("");
+  };
+
+  const attachEvents = () => {
+    body.querySelectorAll(".prefs-cat-chk").forEach((chk) => {
+      chk.onchange = () => {
+        const cat = chk.dataset.cat;
+        if (chk.checked) hiddenCats.delete(cat);
+        else hiddenCats.add(cat);
+        render();
+      };
+    });
+
+    body.querySelectorAll(".prefs-sym-chk").forEach((chk) => {
+      chk.onchange = () => {
+        const sym = chk.dataset.sym;
+        if (chk.checked) hiddenSyms.delete(sym);
+        else hiddenSyms.add(sym);
+      };
+    });
+
+    const catSelect = document.getElementById("prefsCatFilter");
+    if (catSelect) {
+      catSelect.onchange = (e) => {
+        activeFilterCat = e.target.value;
+        const listEl = document.getElementById("prefsInstList");
+        if (listEl) {
+          listEl.innerHTML = renderInstRows();
+          attachSymCheckEvents();
+        }
+      };
+    }
+
+    const searchEl = document.getElementById("prefsSearch");
+    if (searchEl) {
+      searchEl.oninput = (e) => {
+        filterSearch = e.target.value;
+        const listEl = document.getElementById("prefsInstList");
+        if (listEl) {
+          listEl.innerHTML = renderInstRows();
+          attachSymCheckEvents();
+        }
+      };
+    }
+
+    const attachSymCheckEvents = () => {
+      body.querySelectorAll(".prefs-sym-chk").forEach((chk) => {
+        chk.onchange = () => {
+          const sym = chk.dataset.sym;
+          if (chk.checked) hiddenSyms.delete(sym);
+          else hiddenSyms.add(sym);
+        };
+      });
+    };
+
+    const selAllBtn = document.getElementById("prefsSelAll");
+    if (selAllBtn) {
+      selAllBtn.onclick = () => {
+        CATALOG.forEach((i) => {
+          if (activeFilterCat === "all" || i.cat === activeFilterCat) {
+            hiddenSyms.delete(i.sym);
+          }
+        });
+        render();
+      };
+    }
+
+    const deselAllBtn = document.getElementById("prefsDeselAll");
+    if (deselAllBtn) {
+      deselAllBtn.onclick = () => {
+        CATALOG.forEach((i) => {
+          if (activeFilterCat === "all" || i.cat === activeFilterCat) {
+            hiddenSyms.add(i.sym);
+          }
+        });
+        render();
+      };
+    }
+
+    const resetBtn = document.getElementById("prefsReset");
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        hiddenCats.clear();
+        hiddenSyms.clear();
+        render();
+      };
+    }
+
+    document.getElementById("prefsCancelBtn").onclick = () => { overlay.style.display = "none"; };
+    document.getElementById("prefsSaveBtn").onclick = () => {
+      savePrefs({
+        hiddenCategories: Array.from(hiddenCats),
+        hiddenSymbols: Array.from(hiddenSyms),
+      });
+      overlay.style.display = "none";
+    };
+  };
+
+  overlay.style.display = "grid";
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
+  render();
+}
+
+export function openBrokerModal() {
+  const overlay = document.getElementById("brokerModal");
+  const body = document.getElementById("brokerBody");
+  if (!overlay || !body) return;
+
+  const cfg = brokerManager.getConfig() || {
+    provider: "custom_api",
+    name: "Custom Broker API Bridge",
+    apiEndpoint: "",
+    apiKey: "",
+    apiSecret: "",
+    accountId: "",
+    sandbox: true,
+    enabled: false,
+  };
+
+  const isConnected = brokerManager.isConnected();
+  const summary = brokerManager.getBrokerSummary();
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <h3 style="margin:0">🔌 External Broker API Connector</h3>
+      <span class="chip ${isConnected ? "good" : "neutral"}">${isConnected ? "CONNECTED" : "PAPER ONLY"}</span>
+    </div>
+    <div class="sub">Connect an external brokerage API to route live or sandbox market orders directly from this terminal.</div>
+
+    <div class="broker-status-card ${isConnected ? "connected" : ""}">
+      <div>
+        <div style="font-weight:700;font-size:13px">${isConnected ? `✅ Connected: ${summary.name}` : "⭕ Active Route: Simulated Paper Broker"}</div>
+        <div class="muted" style="font-size:11.5px;margin-top:2px">${isConnected ? `Mode: <b>${summary.mode}</b> · Ready to accept orders from the order ticket` : "All trades execute virtually on the built-in simulator engine"}</div>
+      </div>
+      ${isConnected ? `<button class="btn small danger" id="brokerDisconnectBtn">Disconnect</button>` : ""}
+    </div>
+
+    <div class="broker-field">
+      <label>Broker API Provider</label>
+      <select id="brokerProvider">
+        <option value="custom_api" ${cfg.provider === "custom_api" ? "selected" : ""}>Generic REST / Webhook API Bridge</option>
+        <option value="alpaca" ${cfg.provider === "alpaca" ? "selected" : ""}>Alpaca Markets (Equities &amp; Crypto)</option>
+        <option value="ibkr" ${cfg.provider === "ibkr" ? "selected" : ""}>Interactive Brokers (TWS / Client Portal Gateway)</option>
+        <option value="tbc" ${cfg.provider === "tbc" ? "selected" : ""}>TBC Capital Brokerage Bridge (Direct API)</option>
+      </select>
+    </div>
+
+    <div class="broker-field" id="brokerEndpointWrap">
+      <label>API Endpoint / Webhook URL <span class="muted" style="font-weight:400;font-size:11px">e.g. https://api.mybroker.com/v1</span></label>
+      <input type="text" id="brokerEndpoint" placeholder="https://api.mybroker.com/v1" value="${cfg.apiEndpoint || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="broker-field">
+      <label>API Key / Client ID</label>
+      <input type="text" id="brokerApiKey" placeholder="e.g. PK_LIVE_... or API_KEY" value="${cfg.apiKey || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="broker-field">
+      <label>API Secret / Private Token</label>
+      <input type="password" id="brokerApiSecret" placeholder="••••••••••••••••••••••••••••••••" value="${cfg.apiSecret || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="broker-field">
+      <label>Account ID / Subaccount <span class="muted" style="font-weight:400;font-size:11px">(optional)</span></label>
+      <input type="text" id="brokerAccountId" placeholder="e.g. U12345678 or ACCT_01" value="${cfg.accountId || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div style="margin:12px 0 16px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;cursor:pointer">
+        <input type="checkbox" id="brokerSandbox" ${cfg.sandbox !== false ? "checked" : ""}>
+        <span>🛡️ Sandbox / Paper Trading Mode (Safe Testing)</span>
+      </label>
+      <div class="muted" style="font-size:11px;margin-top:4px;margin-left:24px">When enabled, orders are submitted to the broker's sandbox/demo endpoint without risking real capital.</div>
+    </div>
+
+    <div id="brokerFeedback" style="display:none;font-size:12px;margin:10px 0;padding:8px 12px;border-radius:8px"></div>
+
+    <div class="modal-actions">
+      <button class="btn" id="brokerCloseBtn">Close</button>
+      <button class="btn" id="brokerTestBtn">⚡ Test Connection</button>
+      <button class="btn primary" id="brokerSaveBtn">Save &amp; Enable</button>
+    </div>`;
+
+  overlay.style.display = "grid";
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
+
+  const close = () => { overlay.style.display = "none"; };
+  document.getElementById("brokerCloseBtn").onclick = close;
+
+  if (document.getElementById("brokerDisconnectBtn")) {
+    document.getElementById("brokerDisconnectBtn").onclick = () => {
+      if (!confirm("Disconnect external broker and return to internal Simulated Paper mode?")) return;
+      brokerManager.saveConfig(null);
+      if (pf) pf.broker = null;
+      save();
+      renderCloudPanel();
+      close();
+    };
+  }
+
+  const getFormConfig = () => ({
+    provider: document.getElementById("brokerProvider").value,
+    name: document.getElementById("brokerProvider").selectedOptions[0]?.text || "Custom Broker",
+    apiEndpoint: (document.getElementById("brokerEndpoint").value || "").trim(),
+    apiKey: (document.getElementById("brokerApiKey").value || "").trim(),
+    apiSecret: (document.getElementById("brokerApiSecret").value || "").trim(),
+    accountId: (document.getElementById("brokerAccountId").value || "").trim(),
+    sandbox: document.getElementById("brokerSandbox").checked,
+    enabled: true,
+  });
+
+  document.getElementById("brokerTestBtn").onclick = async () => {
+    const btn = document.getElementById("brokerTestBtn");
+    const fb = document.getElementById("brokerFeedback");
+    const testCfg = getFormConfig();
+
+    btn.disabled = true;
+    btn.textContent = "Testing…";
+    fb.style.display = "none";
+
+    try {
+      let adapter;
+      if (testCfg.provider === "alpaca") adapter = new (await import("./broker.js")).AlpacaBrokerAdapter(testCfg);
+      else if (testCfg.provider === "ibkr") adapter = new (await import("./broker.js")).InteractiveBrokersAdapter(testCfg);
+      else adapter = new (await import("./broker.js")).GenericApiBrokerAdapter(testCfg);
+
+      const res = await adapter.authenticate();
+      fb.style.display = "block";
+      fb.style.background = "rgba(52,211,153,.15)";
+      fb.style.color = "var(--up)";
+      fb.textContent = `✓ Broker connection verified: ${res.message || res.note || "Ready for order routing"}`;
+    } catch (err) {
+      fb.style.display = "block";
+      fb.style.background = "rgba(248,113,113,.15)";
+      fb.style.color = "var(--down)";
+      fb.textContent = `Error: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "⚡ Test Connection";
+    }
+  };
+
+  document.getElementById("brokerSaveBtn").onclick = async () => {
+    const saveCfg = getFormConfig();
+    brokerManager.saveConfig(saveCfg);
+    if (pf) pf.broker = saveCfg;
+    save();
+    renderCloudPanel();
+    const fb = document.getElementById("brokerFeedback");
+    fb.style.display = "block";
+    fb.style.background = "rgba(52,211,153,.15)";
+    fb.style.color = "var(--up)";
+    fb.textContent = "✓ External broker settings saved & connected!";
+    setTimeout(close, 1000);
+  };
+}
+
 async function generateToken() {
   try {
     const r = await fetch("/api/token", { method: "POST" });
@@ -268,9 +632,22 @@ async function linkToken(source) {
     const r = await fetch(`/api/portfolio?token=${encodeURIComponent(t)}`);
     const j = await r.json();
     if (r.ok) {
-      pf = { cash: j.portfolio.cash, startEquity: j.portfolio.startEquity, positions: j.portfolio.positions, history: j.portfolio.history, orders: j.portfolio.orders || [], telegram: j.portfolio.telegram || null };
+      pf = {
+        cash: j.portfolio.cash,
+        startEquity: j.portfolio.startEquity,
+        positions: j.portfolio.positions,
+        history: j.portfolio.history,
+        orders: j.portfolio.orders || [],
+        prefs: j.portfolio.prefs || null,
+        broker: j.portfolio.broker || null,
+        telegram: j.portfolio.telegram || null,
+      };
+      if (pf.prefs) localStorage.setItem("tbc_inst_prefs", JSON.stringify(pf.prefs));
+      if (pf.broker) brokerManager.saveConfig(pf.broker);
       localStorage.setItem(KEY, JSON.stringify(pf));
       lastSync = Date.now();
+      window.dispatchEvent(new CustomEvent("tbc-prefs-changed"));
+      window.dispatchEvent(new CustomEvent("tbc-broker-changed"));
     }
     cloudToken = t;
     localStorage.setItem("tbc_token", t);
@@ -296,6 +673,9 @@ function renderCloudPanel() {
   if (!panel) return;
   const tgActive = Boolean(pf?.telegram?.enabled && pf?.telegram?.botToken && pf?.telegram?.chatId);
   const tgChip = `<button class="tg-btn-chip ${tgActive ? "active" : ""}" id="openTelegramBtn" title="Configure personal Telegram bot notifications">✈ Telegram Bot ${tgActive ? "✓ Active" : "＋ Connect"}</button>`;
+  const prefsChip = `<button class="prefs-btn-chip" id="openPrefsBtn" title="Customize visible instrument categories and tickers">⚙️ Filters &amp; Instruments</button>`;
+  const isBrokerConn = brokerManager.isConnected();
+  const brokerChip = `<button class="broker-btn-chip ${isBrokerConn ? "active" : ""}" id="openBrokerBtn" title="Connect external brokerage API">🔌 Broker ${isBrokerConn ? "✓ Connected" : "＋ Connect"}</button>`;
 
   if (cloudToken) {
     const short = `••••${cloudToken.slice(-4)}`;
@@ -304,15 +684,17 @@ function renderCloudPanel() {
       <div class="cloud-row">
         <div class="cloud-info">
           <b>☁ Cloud sync active</b>
-          <span class="muted">token <code>${short}</code> · ${synced} · every trade &amp; Telegram bot config is saved to your private cloud slot</span>
+          <span class="muted">token <code>${short}</code> · ${synced} · trades, filters, broker &amp; Telegram bot config saved to your private cloud slot</span>
         </div>
         <div class="cloud-actions">
+          ${prefsChip}
+          ${brokerChip}
           ${tgChip}
           <button class="btn small" id="copyTokenBtn">Copy token</button>
           <button class="btn small danger" id="unlinkTokenBtn">Unlink</button>
         </div>
       </div>
-      <p class="hint" style="margin:10px 2px 0">Keep this token private — it's the only key to your portfolio and personal bot alerts. Paste it on any device to continue with your trades.</p>`;
+      <p class="hint" style="margin:10px 2px 0">Keep this token private — it's the only key to your portfolio, filters, and personal bot alerts. Paste it on any device to continue with your trades.</p>`;
     $("copyTokenBtn").onclick = () => {
       navigator.clipboard?.writeText(cloudToken);
       $("copyTokenBtn").textContent = "Copied ✓";
@@ -320,14 +702,18 @@ function renderCloudPanel() {
     };
     $("unlinkTokenBtn").onclick = unlinkToken;
     $("openTelegramBtn").onclick = openTelegramModal;
+    $("openPrefsBtn").onclick = openPrefsModal;
+    $("openBrokerBtn").onclick = openBrokerModal;
   } else {
     panel.innerHTML = `
       <div class="cloud-row">
         <div class="cloud-info">
-          <b>Multi-user cloud sync &amp; Telegram Bot</b>
-          <span class="muted">Generate a private token to keep your trades &amp; attach your personal Telegram bot</span>
+          <b>Multi-user cloud sync, Filters &amp; Broker API</b>
+          <span class="muted">Generate a private token to keep your trades, customize visible instruments, and link broker API</span>
         </div>
         <div class="cloud-actions">
+          ${prefsChip}
+          ${brokerChip}
           ${tgChip}
           <input id="tokenInput" placeholder="tbc_…" spellcheck="false" autocomplete="off" />
           <button class="btn small" id="linkTokenBtn">Link</button>
@@ -337,6 +723,8 @@ function renderCloudPanel() {
     $("genTokenBtn").onclick = generateToken;
     $("linkTokenBtn").onclick = linkToken;
     $("openTelegramBtn").onclick = openTelegramModal;
+    $("openPrefsBtn").onclick = openPrefsModal;
+    $("openBrokerBtn").onclick = openBrokerModal;
   }
 }
 
@@ -654,6 +1042,14 @@ export async function openTradeModal(sym, opts = {}) {
         <button type="button" class="btn small" data-brk="20">±20¢</button>
         <button type="button" class="btn small danger" data-brk="clear">clear</button>
       </div>
+      ${brokerManager.isConnected() ? `
+        <div style="margin:8px 0 10px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.3);border-radius:9px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer">
+            <input type="checkbox" id="routeBrokerChkPM" checked>
+            <span>🔌 Route order to ${brokerManager.activeBroker.name} (${brokerManager.activeBroker.isSandbox ? "Sandbox" : "Live"})</span>
+          </label>
+          <span class="chip good" style="font-size:10px">EXTERNAL API</span>
+        </div>` : ""}
 
       <div class="summary-box" id="tradeSummary"></div>
       <div id="tradeSyncRow">${syncRow()}</div>
@@ -784,6 +1180,54 @@ export async function openTradeModal(sym, opts = {}) {
       const effPrice = S_PM.type === "limit" ? (Number(pmLimitEl.value) || curOdds) : curOdds;
       const symSide = S_PM.outcome === o0 ? "buy" : "sell"; // YES maps to long, NO maps to short/sell
       const outcomeLabel = `${q.name} [${S_PM.outcome}]`;
+      const units = effPrice > 0 ? amt / effPrice : 0;
+
+      const isBrokerRouted = brokerManager.isConnected() && $("routeBrokerChkPM")?.checked;
+      if (isBrokerRouted) {
+        try {
+          const bRes = await brokerManager.activeBroker.placeOrder({
+            sym: `${sym}:${S_PM.outcome}`,
+            side: S_PM.action,
+            type: S_PM.type,
+            units,
+            price: effPrice,
+            sl: S_PM.sl,
+            tp: S_PM.tp,
+            source: S_PM.source || `Polymarket ${S_PM.outcome}`,
+          });
+          pf.history.unshift({
+            ts: Date.now(),
+            type: symSide,
+            sym,
+            units: symSide === "buy" ? units : -units,
+            priceUSD: effPrice,
+            amount: amt,
+            ccy: "USD",
+            lev: 1,
+            source: `Broker: ${brokerManager.activeBroker.name}`,
+            note: `Prediction routed: ${bRes.orderId || "submitted"} (${bRes.status})`,
+          });
+          save();
+          notifyTelegram(
+            `🔌 <b>External Broker Prediction Order Placed</b>\n\n` +
+            `<b>Broker:</b> ${brokerManager.activeBroker.name}\n` +
+            `<b>Contract:</b> ${q.name}\n` +
+            `<b>Outcome:</b> ${S_PM.outcome}\n` +
+            `<b>Shares:</b> ${units.toFixed(2)}\n` +
+            `<b>Odds:</b> $${effPrice.toFixed(2)}\n` +
+            `<b>Order ID:</b> <code>${bRes.orderId || "staged"}</code>`,
+            "trades"
+          );
+          showFill(body, overlay, {
+            sym, side: symSide, usd: amt, priceUSD: effPrice, sl: S_PM.sl, tp: S_PM.tp,
+            units, lev: 1, source: `Broker: ${brokerManager.activeBroker.name} (${bRes.orderId || "OK"})`,
+          });
+          return;
+        } catch (err) {
+          alert(`External broker submission failed: ${err.message}`);
+          return;
+        }
+      }
 
       if (S_PM.type === "market") {
         if (S_PM.action === "buy" && amt > pf.cash) return;
@@ -901,6 +1345,14 @@ export async function openTradeModal(sym, opts = {}) {
       <button type="button" class="btn small" data-brk="20">±20%</button>
       <button type="button" class="btn small danger" data-brk="clear">clear</button>
     </div>
+    ${brokerManager.isConnected() ? `
+      <div style="margin:8px 0 10px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.3);border-radius:9px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer">
+          <input type="checkbox" id="routeBrokerChk" checked>
+          <span>🔌 Route order to ${brokerManager.activeBroker.name} (${brokerManager.activeBroker.isSandbox ? "Sandbox" : "Live"})</span>
+        </label>
+        <span class="chip good" style="font-size:10px">EXTERNAL API</span>
+      </div>` : ""}
     <div class="summary-box" id="tradeSummary"></div>
     <div id="tradeSyncRow">${syncRow()}</div>
     <div class="modal-actions">
@@ -1007,6 +1459,56 @@ export async function openTradeModal(sym, opts = {}) {
   $("tradeConfirm").onclick = async () => {
     const amt = Number(amountEl.value) || 0;
     if (amt <= 0) return;
+
+    const isBrokerRouted = brokerManager.isConnected() && $("routeBrokerChk")?.checked;
+    if (isBrokerRouted) {
+      const units = S.side === "buy" ? (amt * S.lev) / priceUSD : amt / priceUSD;
+      try {
+        const bRes = await brokerManager.activeBroker.placeOrder({
+          sym,
+          side: S.side,
+          type: S.type,
+          units,
+          price: priceUSD,
+          sl: S.sl,
+          tp: S.tp,
+          source: S.source,
+        });
+        pf.history.unshift({
+          ts: Date.now(),
+          type: S.side === "buy" ? "buy" : "sell",
+          sym,
+          units: S.side === "buy" ? units : -units,
+          priceUSD,
+          amount: amt,
+          ccy: q.currency,
+          lev: S.lev,
+          source: `Broker: ${brokerManager.activeBroker.name}`,
+          note: `External execution: ${bRes.orderId || "submitted"} (${bRes.status})`,
+        });
+        save();
+        notifyTelegram(
+          `🔌 <b>External Broker Order Placed</b>\n\n` +
+          `<b>Broker:</b> ${brokerManager.activeBroker.name}\n` +
+          `<b>Action:</b> ${S.side === "buy" ? "🟢 BUY / LONG" : "🔴 SELL / SHORT"}\n` +
+          `<b>Instrument:</b> ${sym} (${q.name || sym})\n` +
+          `<b>Units:</b> ${units.toFixed(4)}\n` +
+          `<b>Amount:</b> ${money(amt)}${S.lev > 1 ? ` (${S.lev}×)` : ""}\n` +
+          `<b>Order ID:</b> <code>${bRes.orderId || "staged"}</code>`,
+          "trades"
+        );
+        showFill(body, overlay, {
+          sym, side: S.side, usd: amt, priceUSD, sl: S.sl, tp: S.tp,
+          units, lev: S.lev, source: `Broker: ${brokerManager.activeBroker.name} (Order: ${bRes.orderId || "OK"})`,
+          liq: null,
+        });
+        return;
+      } catch (err) {
+        alert(`External broker submission failed: ${err.message}`);
+        return;
+      }
+    }
+
     if (S.type === "market") {
       if (S.side === "buy" && amt > pf.cash) return;
       executeAtMarket(sym, q.name, q.currency, amt, priceUSD, S.side, S.lev, S.source);
@@ -1050,7 +1552,6 @@ export async function openTradeModal(sym, opts = {}) {
       );
       save();
       renderPortfolio();
-      showOrderPlaced(body, overlay, { sym, ...S });
     }
   };
 }
@@ -1564,9 +2065,22 @@ async function pullFromCloud() {
     const r = await fetch(`/api/portfolio?token=${encodeURIComponent(cloudToken)}`);
     if (!r.ok) return;
     const j = await r.json();
-    pf = { cash: j.portfolio.cash, startEquity: j.portfolio.startEquity, positions: j.portfolio.positions, history: j.portfolio.history, orders: j.portfolio.orders || [] };
+    pf = {
+      cash: j.portfolio.cash,
+      startEquity: j.portfolio.startEquity,
+      positions: j.portfolio.positions,
+      history: j.portfolio.history,
+      orders: j.portfolio.orders || [],
+      prefs: j.portfolio.prefs || null,
+      broker: j.portfolio.broker || null,
+      telegram: j.portfolio.telegram || null,
+    };
+    if (pf.prefs) localStorage.setItem("tbc_inst_prefs", JSON.stringify(pf.prefs));
+    if (pf.broker) brokerManager.saveConfig(pf.broker);
     localStorage.setItem(KEY, JSON.stringify(pf));
     lastSync = Date.now();
+    window.dispatchEvent(new CustomEvent("tbc-prefs-changed"));
+    window.dispatchEvent(new CustomEvent("tbc-broker-changed"));
     renderCloudPanel();
     renderPortfolio();
   } catch {}

@@ -185,6 +185,24 @@
 | Polymarket Desk Signals & Technical Probability Analysis | `api/analysis.js` `polymarketAnalysis` (Prediction Desk, Market Maker Desk, Contrarian Desk) |
 | Binary Contract Trading & Dedicated Prediction Ticket (YES/NO outcome cards, CLOB odds, share calculations, max payout, return-on-win metrics, odds-based SL/TP, and paper portfolio tracking) | `portfolio.js` `openTradeModal/updatePM/pm-outcome-card` · `styles.css` `.pm-outcomes-grid` |
 
+### 11f. Per-Token Instrument & Group Visibility Filters
+
+| Capability | Markers |
+|---|---|
+| Per-Token & Local Market Group Visibility (Hide/Unhide entire categories like Polymarket, Crypto, Forex, etc.) | `instruments.js` `getVisibleCategories` · `portfolio.js` `openPrefsModal` · `api/portfolio.js` `prefs.hiddenCategories` |
+| Granular Instrument Selection per Category (Search, Select All, Deselect All, ticker checkboxes) | `instruments.js` `getFilteredCatalog` · `portfolio.js` `openPrefsModal` · `api/portfolio.js` `prefs.hiddenSymbols` |
+| Cloud Token Sync & Multi-Device Persistence | `portfolio.js` `getPrefs/savePrefs/pushCloud` · `api/portfolio.js` |
+| Dynamic UI Re-rendering & Category Switching Safeguards | `app.js` `renderCategoryTabs` · `index.html` `tabFilterBtn` · `tbc-prefs-changed` |
+
+### 11g. Pluggable External Broker API Connector Architecture
+
+| Capability | Markers |
+|---|---|
+| Abstract Broker Interface & Connector Framework (`authenticate`, `getAccount`, `getPositions`, `placeOrder`, `cancelOrder`) | `broker.js` `BaseBrokerAdapter` · `brokerManager` |
+| Pre-configured Broker Adapters (Generic REST/Webhook Bridge, Alpaca Markets, Interactive Brokers Client Portal Gateway, TBC Capital Direct API) | `broker.js` `GenericApiBrokerAdapter` · `AlpacaBrokerAdapter` · `InteractiveBrokersAdapter` |
+| Broker Connection Management & Health-Check Verification Modal | `portfolio.js` `openBrokerModal` · `broker.js` · `index.html` `brokerModal` |
+| Dual-Route Trade Ticket Execution (Toggle between Simulated Paper Portfolio and External Broker Live/Sandbox Routing) | `portfolio.js` `routeBrokerChk` · `brokerManager.activeBroker.placeOrder` |
+
 ## 12. Storage Registry (never migrate blindly)
 
 | Key | What |
@@ -199,7 +217,9 @@
 | `tbc_drawings_{SYMBOL}` | custom chart drawings per instrument |
 | `tbc_price_alerts` | user custom chart price alerts |
 | `tbc_sound_enabled` | sound & haptics enabled/muted setting |
-| Vercel Blob `portfolios/{token}.json` | cloud portfolios + personal telegram bot configs (**survives deploys**) |
+| `tbc_inst_prefs` | per-token/local hidden categories and hidden instruments |
+| `tbc_broker_config` | external broker API connection credentials & preferences |
+| Vercel Blob `portfolios/{token}.json` | cloud portfolios + personal telegram bot configs + preferences + broker config (**survives deploys**) |
 
 ## 13. Release & Recovery Protocol
 

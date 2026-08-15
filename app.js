@@ -1,6 +1,6 @@
-import { CATALOG, CATEGORY_LABELS } from "./instruments.js";
+import { CATALOG, CATEGORY_LABELS, getFilteredCatalog, getVisibleCategories } from "./instruments.js";
 import { loadAnalysis, initAnalysis } from "./analysis.js";
-import { openTradeModal, initPortfolio, renderPortfolio, initTokenBanner } from "./portfolio.js";
+import { openTradeModal, initPortfolio, renderPortfolio, initTokenBanner, getPrefs, openPrefsModal } from "./portfolio.js";
 import { mountCandleChart } from "./chart.js";
 import { loadPackages } from "./packages.js";
 import { store } from "./store.js";
@@ -62,10 +62,25 @@ async function fetchJSON(url) {
   return j;
 }
 
-// ---------- instrument list ----------
+// ---------- instrument list & categories ----------
+function renderCategoryTabs() {
+  const vis = getVisibleCategories(getPrefs());
+  const visKeys = Object.keys(vis);
+  if (!visKeys.includes(state.cat)) {
+    state.cat = visKeys[0] || "stock";
+    store.cat = state.cat;
+  }
+  els.tabs.innerHTML = visKeys.map((catKey) => {
+    const label = vis[catKey];
+    const isAct = catKey === state.cat;
+    return `<button data-cat="${catKey}" class="${isAct ? "active" : ""}">${catKey === "polymarket" ? "🔮 " : ""}${label}</button>`;
+  }).join("");
+}
+
 function catalogForRender() {
   const q = state.search.trim().toLowerCase();
-  return CATALOG.filter((i) => i.cat === state.cat && (!q || i.sym.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)));
+  const filtered = getFilteredCatalog(getPrefs());
+  return filtered.filter((i) => i.cat === state.cat && (!q || i.sym.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)));
 }
 
 function renderList() {
@@ -698,6 +713,7 @@ document.addEventListener("DOMContentLoaded", applySectionState);
   els.entryDate.value = dstr(nowTs() - 90 * DAY);
   els.entryDate.max = dstr(nowTs());
   els.ccyBadge.textContent = "GBP";
+  renderCategoryTabs();
   const deepSym = symbolFromHash();
   if (deepSym) activateCategoryFor(deepSym);
   renderList();
@@ -711,14 +727,34 @@ document.addEventListener("DOMContentLoaded", applySectionState);
   initShreds();
   initSoundUI();
   applySectionState();
-window.addEventListener("show-simulator", () => navSim?.click());
-document.getElementById("seeResultBtn")?.addEventListener("click", () => {
-  const panel = document.querySelector('[data-section="result"]');
-  if (!panel) return;
-  panel.classList.remove("collapsed");
-  collapse.set("result", false);
-  panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  panel.classList.add("flash");
-  setTimeout(() => panel.classList.remove("flash"), 1600);
-});
+
+  document.getElementById("tabFilterBtn")?.addEventListener("click", () => openPrefsModal());
+
+  window.addEventListener("tbc-prefs-changed", () => {
+    renderCategoryTabs();
+    const filtered = getFilteredCatalog(getPrefs());
+    if (!filtered.some((i) => i.sym === state.symbol)) {
+      const nextSym = filtered.find((i) => i.cat === state.cat)?.sym || filtered[0]?.sym;
+      if (nextSym) selectInstrument(nextSym);
+    }
+    renderList();
+    loadQuotes();
+  });
+
+  window.addEventListener("tbc-token-changed", () => {
+    renderCategoryTabs();
+    renderList();
+    loadQuotes();
+  });
+
+  window.addEventListener("show-simulator", () => navSim?.click());
+  document.getElementById("seeResultBtn")?.addEventListener("click", () => {
+    const panel = document.querySelector('[data-section="result"]');
+    if (!panel) return;
+    panel.classList.remove("collapsed");
+    collapse.set("result", false);
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.classList.add("flash");
+    setTimeout(() => panel.classList.remove("flash"), 1600);
+  });
 })();

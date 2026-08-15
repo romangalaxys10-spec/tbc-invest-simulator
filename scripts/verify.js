@@ -99,6 +99,8 @@ const MANIFEST = [
   ["polymarket-realtime", ["instruments.js", /polymarket|PM:/]],
   ["polymarket-shreds", ["api/shreds.js", /polymarketDecoder|THEME\.PM/]],
   ["polymarket-radar", ["api/scan.js", /pushPM|Probability Surge/]],
+  ["token-instrument-prefs", ["instruments.js", /getFilteredCatalog|getVisibleCategories/]],
+  ["external-broker-api", ["broker.js", /BaseBrokerAdapter|brokerManager/]],
 ];
 
 let fail = 0;
