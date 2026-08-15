@@ -664,171 +664,167 @@ function viewIntel(d) {
       </table>
     </div>
 
-    <div class="insight-blueprint-container">
-      <div class="insight-blueprint-header">
+    <div class="playbook-container" style="margin-top:16px">
+      <div class="playbook-header">
         <div>
-          <span class="insight-blueprint-title">💡 Portfolio Construction Insight &amp; Allocation Blueprint</span>
-          <span class="insight-blueprint-sub">Modern Portfolio Theory (MPT) risk-budgeting framework, non-correlated diversification &amp; tail-risk drawdown mitigation for <b>${d.symbol}</b></span>
+          <span class="playbook-title">💡 Portfolio Construction Insight &amp; Allocation Playbook</span>
+          <span class="playbook-sub">Modern Portfolio Theory (MPT) risk-budgeting framework, cross-asset hedging &amp; stress-test resilience for <b>${d.symbol}</b></span>
         </div>
-        <span class="insight-blueprint-tag">🎯 MPT OPTIMAL FRONTIER</span>
+        <span class="macro-impact-badge high" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.35);color:#34d399"><span class="impact-dot" style="background:#34d399;box-shadow:0 0 8px #34d399"></span>MPT OPTIMAL FRONTIER</span>
       </div>
 
-      <div class="insight-blueprint-meta-bar">
-        <span class="insight-blueprint-meta-item">🛡️ <b>Target Risk Cap:</b> <span class="insight-blueprint-meta-badge" style="background:rgba(52,211,153,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3)">${maxAllocCap}</span></span>
-        <span class="insight-blueprint-meta-item">⚡ <b>Sharpe Impact:</b> <span class="insight-blueprint-meta-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)">${sharpeBoost}</span></span>
-        <span class="insight-blueprint-meta-item">📉 <b>Drawdown Defense:</b> <span class="insight-blueprint-meta-badge" style="background:rgba(192,132,252,0.15);color:#c084fc;border:1px solid rgba(192,132,252,0.3)">${drawdownReduction}</span></span>
-        <span class="insight-blueprint-meta-item">⚖️ <b>Diversification:</b> <span class="insight-blueprint-meta-badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3)">${beta > 1.2 ? "High Beta Dampener" : "All-Weather Balanced"}</span></span>
+      <div class="playbook-meta-bar" style="margin: 0 0 12px 0;">
+        <span class="playbook-meta-item">🛡️ <b>Target Risk Budget:</b> <span class="playbook-asset-pwr med" style="font-size:10.5px">${maxAllocCap}</span></span>
+        <span class="playbook-meta-item">⚡ <b>Sharpe Boost:</b> <span class="playbook-asset-pwr low" style="font-size:10.5px;color:#38bdf8;background:rgba(56,189,248,0.15);border-color:rgba(56,189,248,0.3)">${sharpeBoost}</span></span>
+        <span class="playbook-meta-item">📉 <b>Tail-Risk Buffer:</b> <span class="playbook-asset-pwr high" style="font-size:10.5px">${drawdownReduction}</span></span>
+        <span class="playbook-meta-item">⚖️ <b>Regime:</b> <span class="playbook-asset-pwr low" style="font-size:10.5px;color:#fbbf24;background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.3)">${beta > 1.2 ? "High Beta Dampener" : "All-Weather Balanced"}</span></span>
       </div>
 
-      <div class="insight-blueprint-mechanism">
+      <div class="playbook-mechanism" style="margin-bottom:14px;border-left:3px solid var(--accent);background:rgba(13,10,28,0.65)">
         <b>Core MPT Allocation Synthesis:</b> Pair <b>${d.symbol}</b> with complementary assets exhibiting correlation <b>$r &lt; 0.25$</b> (such as <b>${hedgeAsset.name}</b> or yield anchors). This non-correlated risk-budgeting framework flattens aggregate portfolio volatility, eliminates single-asset vulnerability, and preserves capital during sudden liquidity drawdowns while compounding long-term capital.
       </div>
 
-      <div class="insight-blueprint-grid">
-        <div class="insight-blueprint-card">
-          <div class="insight-blueprint-card-head">
-            <span class="insight-blueprint-icon">🛡️</span>
-            <div class="insight-blueprint-card-info">
-              <div class="insight-blueprint-card-title">${hedgeAsset.name}</div>
-              <div class="insight-blueprint-card-sub">${hedgeAsset.sym} · ${hedgeAsset.cat}</div>
+      <div class="playbook-grid">
+        <!-- Card 1: Natural Hedge -->
+        <div class="playbook-card">
+          <div class="playbook-card-head">
+            <span class="playbook-trigger-icon">🛡️</span>
+            <div style="flex:1">
+              <div class="playbook-trigger-title">${hedgeAsset.name}</div>
+              <div class="playbook-trigger-sub">${hedgeAsset.sym} · ${hedgeAsset.cat}</div>
             </div>
-            <span class="insight-blueprint-badge hedge">Optimal Hedge</span>
+            <span class="playbook-badge bull">🛡️ Optimal Hedge</span>
           </div>
-          <div class="insight-blueprint-alloc-wrap">
-            <div class="insight-blueprint-alloc-bar">
-              <span class="insight-blueprint-alloc-label">Target Allocation:</span>
-              <span class="insight-blueprint-alloc-val">20% – 30%</span>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">20% – 30%</b></span>
+            <span class="playbook-meta-item">⚡ Correlation: <b style="color:${hedgeAsset.r < 0 ? 'var(--down)' : 'var(--up)'}">${hedgeAsset.r >= 0 ? '+' : ''}${hedgeAsset.r.toFixed(2)} ($r$)</b></span>
+            <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr med">Defensive Shield</span></span>
+          </div>
+          <div class="insight-blueprint-progress-track" style="margin:2px 0">
+            <div class="insight-blueprint-progress-fill hedge" style="width:25%"></div>
+          </div>
+          <div class="playbook-mechanism" style="border-left:2px solid #34d399;font-size:10.5px">Offsets portfolio beta and cushions drawdowns when ${d.symbol} faces sharp liquidity contractions.</div>
+          <div class="playbook-assets">
+            <div class="playbook-asset-row">
+              <span class="playbook-badge bull">🟢 Shield</span>
+              <span class="playbook-asset-name">Tail-Risk Buffer <span class="playbook-asset-pwr med">+${(Math.abs(hedgeAsset.r) * 15 + 10).toFixed(1)}% resilience</span></span>
+              <span class="playbook-asset-hint">Non-correlated store of value during market selloffs</span>
             </div>
-            <div class="insight-blueprint-progress-track">
-              <div class="insight-blueprint-progress-fill hedge" style="width:25%"></div>
+            <div class="playbook-asset-row">
+              <span class="playbook-badge neutral">⚪ Sizing</span>
+              <span class="playbook-asset-name">Risk Parity Weight <span class="playbook-asset-pwr low">25% target</span></span>
+              <span class="playbook-asset-hint">Rebalance quarterly to lock in divergence gains</span>
             </div>
           </div>
-          <div class="insight-blueprint-details">
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Correlation: <b class="mono" style="color:${hedgeAsset.r < 0 ? 'var(--down)' : 'var(--up)'}">${hedgeAsset.r >= 0 ? '+' : ''}${hedgeAsset.r.toFixed(2)}</b> ($r$)</span>
-            </div>
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Mechanism: Offsets portfolio beta when ${d.symbol} faces sharp liquidity contractions.</span>
-            </div>
-            <div class="insight-blueprint-power-chips">
-              <span class="playbook-asset-pwr low">Tail-Risk Buffer</span>
-              <span class="playbook-asset-pwr med">Low Co-Movement</span>
-            </div>
-          </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${hedgeAsset.sym}" data-side="buy" data-lev="1" data-src="blueprint-hedge">⚡ Trade ${hedgeAsset.name}</button>
+          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${hedgeAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-hedge">⚡ Trade ${hedgeAsset.name}</button>
         </div>
 
-        <div class="insight-blueprint-card">
-          <div class="insight-blueprint-card-head">
-            <span class="insight-blueprint-icon">⚓</span>
-            <div class="insight-blueprint-card-info">
-              <div class="insight-blueprint-card-title">${anchorAsset.name}</div>
-              <div class="insight-blueprint-card-sub">${anchorAsset.sym} · Yield &amp; Cash Anchor</div>
+        <!-- Card 2: Capital Anchor -->
+        <div class="playbook-card">
+          <div class="playbook-card-head">
+            <span class="playbook-trigger-icon">⚓</span>
+            <div style="flex:1">
+              <div class="playbook-trigger-title">${anchorAsset.name}</div>
+              <div class="playbook-trigger-sub">${anchorAsset.sym} · Yield &amp; Cash Anchor</div>
             </div>
-            <span class="insight-blueprint-badge anchor">Capital Shield</span>
+            <span class="playbook-badge neutral" style="color:#60a5fa;border-color:rgba(96,165,250,0.35);background:rgba(96,165,250,0.15)">⚓ Capital Shield</span>
           </div>
-          <div class="insight-blueprint-alloc-wrap">
-            <div class="insight-blueprint-alloc-bar">
-              <span class="insight-blueprint-alloc-label">Target Allocation:</span>
-              <span class="insight-blueprint-alloc-val">15% – 25%</span>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">15% – 25%</b></span>
+            <span class="playbook-meta-item">⚡ Correlation: <b style="color:#60a5fa">${anchorAsset.r >= 0 ? '+' : ''}${anchorAsset.r.toFixed(2)} ($r$)</b></span>
+            <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr low">Yield Anchor</span></span>
+          </div>
+          <div class="insight-blueprint-progress-track" style="margin:2px 0">
+            <div class="insight-blueprint-progress-fill anchor" style="width:20%"></div>
+          </div>
+          <div class="playbook-mechanism" style="border-left:2px solid #60a5fa;font-size:10.5px">Provides steady yield accrual &amp; dry powder to buy market dips without liquidating core holdings.</div>
+          <div class="playbook-assets">
+            <div class="playbook-asset-row">
+              <span class="playbook-badge neutral" style="color:#60a5fa">⚓ Yield</span>
+              <span class="playbook-asset-name">Risk-Free Baseline <span class="playbook-asset-pwr low">Steady Yield</span></span>
+              <span class="playbook-asset-hint">Preserves capital during high macro uncertainty</span>
             </div>
-            <div class="insight-blueprint-progress-track">
-              <div class="insight-blueprint-progress-fill anchor" style="width:20%"></div>
+            <div class="playbook-asset-row">
+              <span class="playbook-badge neutral">⚪ Liquidity</span>
+              <span class="playbook-asset-name">Dry Powder Pool <span class="playbook-asset-pwr med">Instant Access</span></span>
+              <span class="playbook-asset-hint">Deploy into high-conviction pullbacks</span>
             </div>
           </div>
-          <div class="insight-blueprint-details">
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Correlation: <b class="mono" style="color:#60a5fa">${anchorAsset.r >= 0 ? '+' : ''}${anchorAsset.r.toFixed(2)}</b> ($r$)</span>
-            </div>
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Mechanism: Provides steady yield accrual &amp; dry powder to buy market pullbacks.</span>
-            </div>
-            <div class="insight-blueprint-power-chips">
-              <span class="playbook-asset-pwr low">Risk-Free Yield</span>
-              <span class="playbook-asset-pwr med">Liquidity Buffer</span>
-            </div>
-          </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${anchorAsset.sym}" data-side="buy" data-lev="1" data-src="blueprint-anchor">⚡ Trade ${anchorAsset.name}</button>
+          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${anchorAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-anchor">⚡ Trade ${anchorAsset.name}</button>
         </div>
 
-        <div class="insight-blueprint-card">
-          <div class="insight-blueprint-card-head">
-            <span class="insight-blueprint-icon">🚀</span>
-            <div class="insight-blueprint-card-info">
-              <div class="insight-blueprint-card-title">${growthAsset.name}</div>
-              <div class="insight-blueprint-card-sub">${growthAsset.sym} · Core Market Engine</div>
+        <!-- Card 3: Core Growth Engine -->
+        <div class="playbook-card">
+          <div class="playbook-card-head">
+            <span class="playbook-trigger-icon">🚀</span>
+            <div style="flex:1">
+              <div class="playbook-trigger-title">${growthAsset.name}</div>
+              <div class="playbook-trigger-sub">${growthAsset.sym} · Core Compounding Engine</div>
             </div>
-            <span class="insight-blueprint-badge growth">Compounding</span>
+            <span class="playbook-badge bull" style="color:#c084fc;border-color:rgba(192,132,252,0.35);background:rgba(192,132,252,0.15)">🚀 Compounding</span>
           </div>
-          <div class="insight-blueprint-alloc-wrap">
-            <div class="insight-blueprint-alloc-bar">
-              <span class="insight-blueprint-alloc-label">Target Allocation:</span>
-              <span class="insight-blueprint-alloc-val">40% – 55%</span>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">40% – 55%</b></span>
+            <span class="playbook-meta-item">⚡ Correlation: <b style="color:#c084fc">${growthAsset.r >= 0 ? '+' : ''}${growthAsset.r.toFixed(2)} ($r$)</b></span>
+            <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr high" style="background:rgba(192,132,252,0.18);color:#d8b4fe;border-color:rgba(192,132,252,0.3)">Growth Core</span></span>
+          </div>
+          <div class="insight-blueprint-progress-track" style="margin:2px 0">
+            <div class="insight-blueprint-progress-fill growth" style="width:48%"></div>
+          </div>
+          <div class="playbook-mechanism" style="border-left:2px solid #c084fc;font-size:10.5px">Captures long-term corporate productivity gains and broad equity beta with maximum liquidity.</div>
+          <div class="playbook-assets">
+            <div class="playbook-asset-row">
+              <span class="playbook-badge bull">🟢 Upside</span>
+              <span class="playbook-asset-name">Broad Market Beta <span class="playbook-asset-pwr high">+8.5% avg ann</span></span>
+              <span class="playbook-asset-hint">Drives portfolio compounding through cycles</span>
             </div>
-            <div class="insight-blueprint-progress-track">
-              <div class="insight-blueprint-progress-fill growth" style="width:48%"></div>
+            <div class="playbook-asset-row">
+              <span class="playbook-badge neutral">⚪ Liquidity</span>
+              <span class="playbook-asset-name">Deepest Order Book <span class="playbook-asset-pwr med">Zero Slippage</span></span>
+              <span class="playbook-asset-hint">Institutional scale efficiency &amp; tight spreads</span>
             </div>
           </div>
-          <div class="insight-blueprint-details">
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Correlation: <b class="mono" style="color:#c084fc">${growthAsset.r >= 0 ? '+' : ''}${growthAsset.r.toFixed(2)}</b> ($r$)</span>
-            </div>
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Mechanism: Harnesses baseline corporate productivity &amp; broad equity expansion.</span>
-            </div>
-            <div class="insight-blueprint-power-chips">
-              <span class="playbook-asset-pwr high">Core Compounder</span>
-              <span class="playbook-asset-pwr med">High Liquidity</span>
-            </div>
-          </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${growthAsset.sym}" data-side="buy" data-lev="1" data-src="blueprint-growth">⚡ Trade ${growthAsset.name}</button>
+          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${growthAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-growth">⚡ Trade ${growthAsset.name}</button>
         </div>
 
-        <div class="insight-blueprint-card">
-          <div class="insight-blueprint-card-head">
-            <span class="insight-blueprint-icon">⚡</span>
-            <div class="insight-blueprint-card-info">
-              <div class="insight-blueprint-card-title">${asymAsset.name}</div>
-              <div class="insight-blueprint-card-sub">${asymAsset.sym} · ${asymAsset.cat}</div>
+        <!-- Card 4: Asymmetric Satellite -->
+        <div class="playbook-card">
+          <div class="playbook-card-head">
+            <span class="playbook-trigger-icon">⚡</span>
+            <div style="flex:1">
+              <div class="playbook-trigger-title">${asymAsset.name}</div>
+              <div class="playbook-trigger-sub">${asymAsset.sym} · ${asymAsset.cat}</div>
             </div>
-            <span class="insight-blueprint-badge alpha">Asymmetric Satellite</span>
+            <span class="playbook-badge neutral" style="color:#fbbf24;border-color:rgba(251,191,36,0.35);background:rgba(251,191,36,0.15)">⚡ Convex Alpha</span>
           </div>
-          <div class="insight-blueprint-alloc-wrap">
-            <div class="insight-blueprint-alloc-bar">
-              <span class="insight-blueprint-alloc-label">Target Allocation:</span>
-              <span class="insight-blueprint-alloc-val">5% – 10%</span>
+          <div class="playbook-meta-bar">
+            <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">5% – 10%</b></span>
+            <span class="playbook-meta-item">⚡ Correlation: <b style="color:#fbbf24">${asymAsset.r >= 0 ? '+' : ''}${asymAsset.r.toFixed(2)} ($r$)</b></span>
+            <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr low" style="color:#fbbf24;border-color:rgba(251,191,36,0.3)">High Convexity</span></span>
+          </div>
+          <div class="insight-blueprint-progress-track" style="margin:2px 0">
+            <div class="insight-blueprint-progress-fill alpha" style="width:10%"></div>
+          </div>
+          <div class="playbook-mechanism" style="border-left:2px solid #fbbf24;font-size:10.5px">Provides high convex upside and exponential participation without risking core portfolio solvency.</div>
+          <div class="playbook-assets">
+            <div class="playbook-asset-row">
+              <span class="playbook-badge bull">🟢 Alpha</span>
+              <span class="playbook-asset-name">Convex Payout <span class="playbook-asset-pwr high">3×–10× upside</span></span>
+              <span class="playbook-asset-hint">Asymmetric payoff with strictly capped downside</span>
             </div>
-            <div class="insight-blueprint-progress-track">
-              <div class="insight-blueprint-progress-fill alpha" style="width:10%"></div>
+            <div class="playbook-asset-row">
+              <span class="playbook-badge bear">🔴 Risk</span>
+              <span class="playbook-asset-name">High Volatility <span class="playbook-asset-pwr high">Max 10% cap</span></span>
+              <span class="playbook-asset-hint">Strict position sizing prevents capital erosion</span>
             </div>
           </div>
-          <div class="insight-blueprint-details">
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Correlation: <b class="mono" style="color:#fbbf24">${asymAsset.r >= 0 ? '+' : ''}${asymAsset.r.toFixed(2)}</b> ($r$)</span>
-            </div>
-            <div class="insight-blueprint-detail-row">
-              <span class="insight-blueprint-detail-dot">›</span>
-              <span>Mechanism: Provides high convex upside without risking core portfolio solvency.</span>
-            </div>
-            <div class="insight-blueprint-power-chips">
-              <span class="playbook-asset-pwr high">Convex Alpha</span>
-              <span class="playbook-asset-pwr low">Controlled Risk</span>
-            </div>
-          </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${asymAsset.sym}" data-side="buy" data-lev="1" data-src="blueprint-alpha">⚡ Trade ${asymAsset.name}</button>
+          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${asymAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-alpha">⚡ Trade ${asymAsset.name}</button>
         </div>
       </div>
 
-      <div class="insight-blueprint-stress-wrap">
+      <div class="insight-blueprint-stress-wrap" style="margin-top:14px">
         <div class="insight-blueprint-stress-head">
-          <span>📊 MPT Cross-Regime Resilience &amp; Stress Simulation</span>
+          <span style="font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">📊 MPT Cross-Regime Stress Simulation Playbook</span>
         </div>
         <div class="macro-table-wrap">
           <table class="macro-table">
@@ -836,13 +832,13 @@ function viewIntel(d) {
               <tr>
                 <th style="min-width:180px">Macro Regime Scenario</th>
                 <th>Standalone Asset (${d.symbol})</th>
-                <th>Blueprint Hedged Portfolio</th>
+                <th>Hedged Playbook Portfolio</th>
                 <th>Net Portfolio Defense</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><b>🔻 Liquidity Contraction (-20% Market Drop)</b><br><span class="muted" style="font-size:10.5px">Forced deleveraging / risk-off liquidation</span></td>
+                <td><b>🔻 Liquidity Contraction (-20% Market Crash)</b><br><span class="muted" style="font-size:10.5px">Forced deleveraging / risk-off liquidation</span></td>
                 <td class="mono" style="color:var(--down);font-weight:700">${beta > 1.3 ? "-28.4%" : "-21.5%"}</td>
                 <td class="mono" style="color:#38bdf8;font-weight:700">-7.8%</td>
                 <td><span class="macro-bias-badge good">🛡️ +${beta > 1.3 ? "20.6%" : "13.7%"} Protected</span></td>
