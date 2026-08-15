@@ -142,6 +142,15 @@
 | Execute buttons: event delegation (never rAF/direct onclick) | `analysis.js` `.exec-btn` delegation · `patterns.js`/`alerts.js`/`shreds.js` |
 | JS cache-busting (must-revalidate headers) | `vercel.json` headers |
 
+## 11b. Telegram Bot Notifications (Multi-user per token)
+
+| Feature | Code |
+|---|---|
+| Telegram bot proxy & test connection API | `api/telegram.js` |
+| Personal bot modal: setup guide, BotFather links, test & save | `portfolio.js` `openTelegramModal` · `index.html` `#telegramModal` |
+| Live notification dispatcher (trades/orders/exits/radar) | `portfolio.js` `notifyTelegram` · `alerts.js` |
+| Cloud sync token attachment for bot configuration | `api/portfolio.js` (telegram schema) · `portfolio.js` `cloudToken` |
+
 ## 12. Storage Registry (never migrate blindly)
 
 | Key | What |
@@ -153,7 +162,7 @@
 | `tbc_section_order` | section order |
 | `tbc_shred_providers` | external RPC list |
 | `tbc_shred_ticks_{CHAIN}` | live candle ticks |
-| Vercel Blob `portfolios/{token}.json` | cloud portfolios (**survives deploys**) |
+| Vercel Blob `portfolios/{token}.json` | cloud portfolios + personal telegram bot configs (**survives deploys**) |
 
 ## 13. Release & Recovery Protocol
 
@@ -164,3 +173,4 @@
 5. Lost something? `git diff vX.Y.Z..HEAD -- <file>` or restore: `git checkout vX.Y.Z -- <file>`
 
 **Tags:** `v2.0.0` = full feature-complete snapshot (this document's state)
+

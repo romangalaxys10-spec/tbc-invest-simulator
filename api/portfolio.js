@@ -42,6 +42,16 @@ export default async function handler(req, res) {
         positions: portfolio.positions.slice(0, 100),
         history: portfolio.history.slice(0, 300),
         orders: (portfolio.orders || []).slice(0, 100),
+        telegram: portfolio.telegram && typeof portfolio.telegram === "object" ? {
+          botToken: typeof portfolio.telegram.botToken === "string" ? portfolio.telegram.botToken.slice(0, 100) : "",
+          chatId: typeof portfolio.telegram.chatId === "string" ? portfolio.telegram.chatId.slice(0, 50) : "",
+          enabled: Boolean(portfolio.telegram.enabled),
+          notifyTrades: portfolio.telegram.notifyTrades !== false,
+          notifyOrders: portfolio.telegram.notifyOrders !== false,
+          notifyExits: portfolio.telegram.notifyExits !== false,
+          notifyRadar: Boolean(portfolio.telegram.notifyRadar),
+          connectedAt: Number(portfolio.telegram.connectedAt) || Date.now(),
+        } : null,
       };
       await put(KEY(token), JSON.stringify(clean), {
         access: "private",

@@ -88,6 +88,8 @@ const MANIFEST = [
   ["deep-links", ["app.js", /symbolFromHash/]],
   ["share-button", ["app.js", /shareBtn/]],
   ["footer-badges", ["index.html", /z\.ai\/subscribe|VibeCodePrompterSystem/]],
+  ["telegram-bot-api", ["api/telegram.js", /api\.telegram\.org\/bot/]],
+  ["telegram-bot-ui", ["portfolio.js", /openTelegramModal|notifyTelegram/]],
 ];
 
 let fail = 0;

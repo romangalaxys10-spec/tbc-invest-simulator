@@ -883,3 +883,37 @@ input[type="range"]::-moz-range-thumb {
 .bracket-row .field-hint { font-size: 9.5px; font-weight: 500; color: var(--muted); }
 .bracket-row input { width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-size: 13.5px; font-family: var(--mono); box-shadow: inset 0 1px 3px rgba(0,0,0,.3); }
 .bracket-presets { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+
+/* Telegram Bot Notifications */
+.tg-btn-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(41,182,246,.12); border: 1px solid rgba(41,182,246,.35);
+  color: #29b6f6; border-radius: 8px; padding: 5px 10px; font-size: 11.5px; font-weight: 700;
+  cursor: pointer; transition: .15s;
+}
+.tg-btn-chip:hover { background: rgba(41,182,246,.22); border-color: #29b6f6; color: #fff; transform: translateY(-1px); }
+.tg-btn-chip.active { background: rgba(52,211,153,.15); border-color: rgba(52,211,153,.4); color: var(--up); }
+.telegram-modal { width: min(520px, 100%); }
+.tg-status-card {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 15px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.tg-status-card.connected { border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.06); }
+.tg-status-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.tg-status-info b { font-size: 13.5px; color: var(--text); }
+.tg-guide {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; margin: 12px 0; font-size: 12px; color: var(--muted); line-height: 1.65;
+}
+.tg-guide ol { margin: 6px 0 0 18px; padding: 0; }
+.tg-guide li { margin-bottom: 4px; }
+.tg-guide a { color: #29b6f6; text-decoration: underline; }
+.tg-guide code { font-family: var(--mono); color: var(--accent-2); background: rgba(0,0,0,.3); padding: 1px 5px; border-radius: 4px; }
+.tg-prefs { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.tg-pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+.tg-pref-row label { margin: 0; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.tg-pref-row input[type="checkbox"] { accent-color: #29b6f6; width: 16px; height: 16px; cursor: pointer; }
+.tg-field { margin-bottom: 12px; }
+.tg-field label { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 5px; display: flex; justify-content: space-between; }
+.tg-field input { font-family: var(--mono); font-size: 12.5px; }
+

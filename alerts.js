@@ -40,6 +40,15 @@ export async function scanMarket({ silent = true } = {}) {
     if (!silent && fresh > 0 && "Notification" in window && Notification.permission === "granted") {
       new Notification(`TBC Radar: ${fresh} new signal${fresh > 1 ? "s" : ""}`, { body: j.alerts.slice(0, 3).map((a) => `${a.sym} ${a.type}`).join("\n") });
     }
+    if (fresh > 0) {
+      const strongAlerts = (j.alerts || []).filter((a) => (a.strength || 1) >= 3);
+      if (strongAlerts.length > 0) {
+        import("./portfolio.js").then(({ notifyTelegram }) => {
+          const list = strongAlerts.slice(0, 3).map((a) => `• <b>${a.sym}</b> (${a.dir === "bullish" ? "▲ Bullish" : "▼ Bearish"}): ${a.type}\n  <i>${a.detail}</i>`).join("\n");
+          notifyTelegram(`🚨 <b>TBC Radar Market Alert (★★★)</b>\n\n${list}`, "radar");
+        }).catch(() => {});
+      }
+    }
     return j;
   } catch (e) {
     lastScan = { error: e.message };

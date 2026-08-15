@@ -51,6 +51,189 @@ async function pushCloud() {
   renderCloudPanel();
 }
 
+// ---------- Telegram Bot Notifications ----------
+export async function notifyTelegram(text, category = "trades") {
+  const tg = pf?.telegram;
+  if (!tg || !tg.enabled || !tg.botToken || !tg.chatId) return;
+
+  if (category === "trades" && tg.notifyTrades === false) return;
+  if (category === "orders" && tg.notifyOrders === false) return;
+  if (category === "exits" && tg.notifyExits === false) return;
+  if (category === "radar" && !tg.notifyRadar) return;
+
+  try {
+    await fetch("/api/telegram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        botToken: tg.botToken,
+        chatId: tg.chatId,
+        message: text,
+      }),
+    });
+  } catch (e) {
+    console.warn("telegram alert failed:", e.message);
+  }
+}
+
+export function openTelegramModal() {
+  const overlay = document.getElementById("telegramModal");
+  const body = document.getElementById("telegramBody");
+  if (!overlay || !body) return;
+
+  const tg = pf.telegram || {
+    botToken: "",
+    chatId: "",
+    enabled: false,
+    notifyTrades: true,
+    notifyOrders: true,
+    notifyExits: true,
+    notifyRadar: true,
+  };
+
+  const shortToken = tg.botToken ? `${tg.botToken.slice(0, 6)}••••${tg.botToken.slice(-4)}` : "";
+  const isConn = Boolean(tg.enabled && tg.botToken && tg.chatId);
+
+  body.innerHTML = `
+    <h3>✈ Telegram Bot Notifications</h3>
+    <div class="sub">Attach your personal Telegram Bot to your account token (<code>${cloudToken ? `••••${cloudToken.slice(-4)}` : "local account"}</code>) for real-time alerts.</div>
+
+    <div class="tg-status-card ${isConn ? "connected" : ""}">
+      <div class="tg-status-info">
+        <b>${isConn ? "✅ Connected & Active" : "⭕ Not Connected"}</b>
+        <span class="muted">${isConn ? `Bot token <code>${shortToken}</code> · Chat ID <code>${tg.chatId}</code>` : "Configure your bot credentials below to receive trade alerts on Telegram."}</span>
+      </div>
+      ${isConn ? `<button class="btn small danger" id="tgDisconnectBtn">Disconnect</button>` : ""}
+    </div>
+
+    <div class="tg-field">
+      <label>Telegram Bot Token <a href="https://t.me/BotFather" target="_blank" rel="noopener" class="muted" style="font-weight:normal;font-size:11px">Get via @BotFather ↗</a></label>
+      <input type="password" id="tgTokenInput" placeholder="123456789:ABCdefGhIJKlmNoPQRstuVWXyz..." value="${tg.botToken || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="tg-field">
+      <label>Telegram Chat ID <a href="https://t.me/userinfobot" target="_blank" rel="noopener" class="muted" style="font-weight:normal;font-size:11px">Get via @userinfobot ↗</a></label>
+      <input type="text" id="tgChatIdInput" placeholder="e.g. 123456789 or -100..." value="${tg.chatId || ""}" autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="tg-guide">
+      <b>Quick 1-Minute Setup:</b>
+      <ol>
+        <li>Open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> in Telegram & send <code>/newbot</code> to create your bot & copy its token.</li>
+        <li>Open your new bot in Telegram and press <b>Start</b> (or send <code>/start</code>).</li>
+        <li>Open <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> to see your numeric <b>Chat ID</b>.</li>
+        <li>Paste both below and click <b>Test & Connect</b>.</li>
+      </ol>
+    </div>
+
+    <div class="tg-prefs">
+      <div class="tg-pref-row">
+        <label><input type="checkbox" id="tgPrefTrades" ${tg.notifyTrades !== false ? "checked" : ""}> ⚡ Executions & Market Fills</label>
+        <span class="muted">Instant buy/sell prints</span>
+      </div>
+      <div class="tg-pref-row">
+        <label><input type="checkbox" id="tgPrefExits" ${tg.notifyExits !== false ? "checked" : ""}> 🛑 Stop-Loss & 🎯 Take-Profit Exits</label>
+        <span class="muted">Ladder & bracket hits</span>
+      </div>
+      <div class="tg-pref-row">
+        <label><input type="checkbox" id="tgPrefOrders" ${tg.notifyOrders !== false ? "checked" : ""}> ⏳ Pending Orders Fired</label>
+        <span class="muted">Limit, stop & auction</span>
+      </div>
+      <div class="tg-pref-row">
+        <label><input type="checkbox" id="tgPrefRadar" ${tg.notifyRadar ? "checked" : ""}> 🚨 High-Strength Radar Signals (★★★)</label>
+        <span class="muted">Hourly market breakouts</span>
+      </div>
+    </div>
+
+    <div id="tgFeedback" style="display:none; font-size:12px; margin: 10px 0; padding: 8px 12px; border-radius:8px;"></div>
+
+    <div class="modal-actions">
+      <button class="btn" id="tgCloseBtn">Close</button>
+      <button class="btn primary" id="tgSaveBtn">⚡ Test &amp; Save</button>
+    </div>`;
+
+  overlay.style.display = "grid";
+
+  const close = () => { overlay.style.display = "none"; };
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  document.getElementById("tgCloseBtn").onclick = close;
+
+  if (document.getElementById("tgDisconnectBtn")) {
+    document.getElementById("tgDisconnectBtn").onclick = () => {
+      if (!confirm("Disconnect your Telegram bot notifications from this token?")) return;
+      pf.telegram = null;
+      save();
+      renderCloudPanel();
+      close();
+    };
+  }
+
+  document.getElementById("tgSaveBtn").onclick = async () => {
+    const btn = document.getElementById("tgSaveBtn");
+    const fb = document.getElementById("tgFeedback");
+    const bToken = (document.getElementById("tgTokenInput").value || "").trim();
+    const cId = (document.getElementById("tgChatIdInput").value || "").trim();
+
+    if (!bToken || !cId) {
+      fb.style.display = "block";
+      fb.style.background = "rgba(248,113,113,.15)";
+      fb.style.color = "var(--down)";
+      fb.textContent = "Please enter both Bot Token and Chat ID.";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Testing connection…";
+    fb.style.display = "none";
+
+    try {
+      const r = await fetch("/api/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          botToken: bToken,
+          chatId: cId,
+          testOnly: true,
+        }),
+      });
+
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        throw new Error(j.error || `Telegram verification failed (${r.status})`);
+      }
+
+      pf.telegram = {
+        botToken: bToken,
+        chatId: cId,
+        enabled: true,
+        notifyTrades: document.getElementById("tgPrefTrades").checked,
+        notifyOrders: document.getElementById("tgPrefOrders").checked,
+        notifyExits: document.getElementById("tgPrefExits").checked,
+        notifyRadar: document.getElementById("tgPrefRadar").checked,
+        connectedAt: Date.now(),
+      };
+
+      save();
+      renderCloudPanel();
+
+      fb.style.display = "block";
+      fb.style.background = "rgba(52,211,153,.15)";
+      fb.style.color = "var(--up)";
+      fb.textContent = "✓ Test message sent successfully! Telegram bot is now attached.";
+
+      setTimeout(() => { close(); }, 1200);
+    } catch (err) {
+      fb.style.display = "block";
+      fb.style.background = "rgba(248,113,113,.15)";
+      fb.style.color = "var(--down)";
+      fb.textContent = `Error: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "⚡ Test & Save";
+    }
+  };
+}
+
 async function generateToken() {
   try {
     const r = await fetch("/api/token", { method: "POST" });
@@ -80,7 +263,7 @@ async function linkToken(source) {
     const r = await fetch(`/api/portfolio?token=${encodeURIComponent(t)}`);
     const j = await r.json();
     if (r.ok) {
-      pf = { cash: j.portfolio.cash, startEquity: j.portfolio.startEquity, positions: j.portfolio.positions, history: j.portfolio.history };
+      pf = { cash: j.portfolio.cash, startEquity: j.portfolio.startEquity, positions: j.portfolio.positions, history: j.portfolio.history, orders: j.portfolio.orders || [], telegram: j.portfolio.telegram || null };
       localStorage.setItem(KEY, JSON.stringify(pf));
       lastSync = Date.now();
     }
@@ -106,6 +289,9 @@ function unlinkToken() {
 function renderCloudPanel() {
   const panel = $("cloudPanel");
   if (!panel) return;
+  const tgActive = Boolean(pf?.telegram?.enabled && pf?.telegram?.botToken && pf?.telegram?.chatId);
+  const tgChip = `<button class="tg-btn-chip ${tgActive ? "active" : ""}" id="openTelegramBtn" title="Configure personal Telegram bot notifications">✈ Telegram Bot ${tgActive ? "✓ Active" : "＋ Connect"}</button>`;
+
   if (cloudToken) {
     const short = `••••${cloudToken.slice(-4)}`;
     const synced = lastSync ? `saved ${new Date(lastSync).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "syncing…";
@@ -113,28 +299,31 @@ function renderCloudPanel() {
       <div class="cloud-row">
         <div class="cloud-info">
           <b>☁ Cloud sync active</b>
-          <span class="muted">token <code>${short}</code> · ${synced} · every trade is saved to your private cloud slot</span>
+          <span class="muted">token <code>${short}</code> · ${synced} · every trade &amp; Telegram bot config is saved to your private cloud slot</span>
         </div>
         <div class="cloud-actions">
+          ${tgChip}
           <button class="btn small" id="copyTokenBtn">Copy token</button>
           <button class="btn small danger" id="unlinkTokenBtn">Unlink</button>
         </div>
       </div>
-      <p class="hint" style="margin:10px 2px 0">Keep this token private — it's the only key to your portfolio. Paste it on any device to continue with your trades.</p>`;
+      <p class="hint" style="margin:10px 2px 0">Keep this token private — it's the only key to your portfolio and personal bot alerts. Paste it on any device to continue with your trades.</p>`;
     $("copyTokenBtn").onclick = () => {
       navigator.clipboard?.writeText(cloudToken);
       $("copyTokenBtn").textContent = "Copied ✓";
       setTimeout(() => ($("copyTokenBtn").textContent = "Copy token"), 1500);
     };
     $("unlinkTokenBtn").onclick = unlinkToken;
+    $("openTelegramBtn").onclick = openTelegramModal;
   } else {
     panel.innerHTML = `
       <div class="cloud-row">
         <div class="cloud-info">
-          <b>Multi-user cloud sync</b>
-          <span class="muted">Generate a private token to keep your trades on any device — or paste an existing one</span>
+          <b>Multi-user cloud sync &amp; Telegram Bot</b>
+          <span class="muted">Generate a private token to keep your trades &amp; attach your personal Telegram bot</span>
         </div>
         <div class="cloud-actions">
+          ${tgChip}
           <input id="tokenInput" placeholder="tbc_…" spellcheck="false" autocomplete="off" />
           <button class="btn small" id="linkTokenBtn">Link</button>
           <button class="btn small primary" id="genTokenBtn">Generate my token</button>
@@ -142,6 +331,7 @@ function renderCloudPanel() {
       </div>`;
     $("genTokenBtn").onclick = generateToken;
     $("linkTokenBtn").onclick = linkToken;
+    $("openTelegramBtn").onclick = openTelegramModal;
   }
 }
 
@@ -519,9 +709,23 @@ export async function openTradeModal(sym, opts = {}) {
       if (S.side === "buy" && amt > pf.cash) return;
       executeAtMarket(sym, q.name, q.currency, amt, priceUSD, S.side, S.lev, S.source);
       attachBracket(sym, S.sl, S.tp, S.side === "buy", priceUSD);
+      const units = S.side === "buy" ? (amt * S.lev) / priceUSD : amt / priceUSD;
+      notifyTelegram(
+        `⚡ <b>TBC Trade Executed</b>\n\n` +
+        `<b>Action:</b> ${S.side === "buy" ? "🟢 BUY / LONG" : "🔴 SELL / SHORT"}\n` +
+        `<b>Instrument:</b> ${sym} (${q.name || sym})\n` +
+        `<b>Fill Price:</b> ${money(priceUSD)}\n` +
+        `<b>Units:</b> ${units.toFixed(4)}\n` +
+        `<b>Amount:</b> ${money(amt)}${S.lev > 1 ? ` (${S.lev}× leverage)` : ""}\n` +
+        (S.sl ? `<b>Stop-Loss:</b> ${money(S.sl)}\n` : "") +
+        (S.tp ? `<b>Take-Profit:</b> ${money(S.tp)}\n` : "") +
+        (S.source ? `<b>Source:</b> ${S.source}\n` : "") +
+        `<b>Cash Remaining:</b> ${money(pf.cash)}`,
+        "trades"
+      );
       showFill(body, overlay, {
         sym, side: S.side, usd: amt, priceUSD, sl: S.sl, tp: S.tp,
-        units: S.side === "buy" ? (amt * S.lev) / priceUSD : amt / priceUSD,
+        units,
         lev: S.lev, source: S.source,
         liq: S.lev > 1 ? (S.side === "buy" ? priceUSD * (1 - 1 / S.lev + 0.005) : priceUSD * (1 + 1 / S.lev - 0.005)) : null,
       });
@@ -533,6 +737,15 @@ export async function openTradeModal(sym, opts = {}) {
         usd: amt, trigger: Number(trigEl.value) || priceUSD, lev: S.lev, sl: S.sl, tp: S.tp,
         source: S.source || null, created: Date.now(),
       });
+      notifyTelegram(
+        `⏳ <b>TBC Pending Order Placed</b>\n\n` +
+        `<b>Type:</b> ${S.type.toUpperCase()}\n` +
+        `<b>Side:</b> ${S.side === "buy" ? "BUY" : "SELL"}\n` +
+        `<b>Instrument:</b> ${sym}\n` +
+        `<b>Trigger:</b> ${money(Number(trigEl.value) || priceUSD)}\n` +
+        `<b>Amount:</b> ${money(amt)}${S.lev > 1 ? ` (${S.lev}× leverage)` : ""}`,
+        "orders"
+      );
       save();
       renderPortfolio();
       showOrderPlaced(body, overlay, { sym, ...S });
@@ -652,6 +865,14 @@ export async function processPendingOrders(auctionTick = false) {
     pf.orders = pf.orders.filter((x) => x.id !== o.id);
     executeAtMarket(o.sym, o.name, o.ccy, o.usd, priceUSD, o.side, o.lev, o.source || `order:${o.type}@${o.trigger}`);
     attachBracket(o.sym, o.sl, o.tp, o.side === "buy", priceUSD);
+    notifyTelegram(
+      `⏳ <b>TBC Pending Order Triggered & Filled</b>\n\n` +
+      `<b>Order:</b> ${o.type.toUpperCase()} ${o.side === "buy" ? "BUY" : "SELL"}\n` +
+      `<b>Instrument:</b> ${o.sym}\n` +
+      `<b>Execution Price:</b> ${money(priceUSD)}\n` +
+      `<b>Amount:</b> ${money(o.usd)}${o.lev > 1 ? ` (${o.lev}×)` : ""}`,
+      "orders"
+    );
     changed = true;
   }
   if (changed) { save(); renderPortfolio(); }
@@ -671,6 +892,13 @@ async function checkLiquidations(views) {
       pf.cash -= units * p.liquidation;
       pf.history.unshift({ ts: Date.now(), type: "liquidation", sym: p.sym, units, priceUSD: p.liquidation, amount: units * p.liquidation, realized: units * (p.avgCost - p.liquidation), ccy: p.ccy, note: `Short liquidated at ${p.liquidation.toFixed(2)} (${p.lev}×)` });
     }
+    notifyTelegram(
+      `🚨 <b>TBC Position Liquidated</b>\n\n` +
+      `<b>Instrument:</b> ${p.sym} (${p.units > 0 ? "LONG" : "SHORT"} ${p.lev}×)\n` +
+      `<b>Liquidation Price:</b> ${money(p.liquidation)}\n` +
+      `<b>Closed Units:</b> ${units.toFixed(4)}`,
+      "exits"
+    );
     pf.positions = pf.positions.filter((x) => x.id !== p.id);
   }
 }
@@ -782,11 +1010,27 @@ async function processExits(views) {
         pos.units -= units;
         const realized = units * (px - pos.avgCost);
         pf.history.unshift({ ts: Date.now(), type: "exit", sym: pos.sym, units, priceUSD: px, amount: units * px, realized, ccy: pos.ccy, note: `Exit ${Math.round(lvl.portion * 100)}% @ ${px.toFixed(2)}` });
+        notifyTelegram(
+          `🎯 <b>TBC Exit Target Triggered</b>\n\n` +
+          `<b>Instrument:</b> ${pos.sym} (LONG)\n` +
+          `<b>Exit Price:</b> ${money(px)}\n` +
+          `<b>Portion Closed:</b> ${Math.round(lvl.portion * 100)}% (${units.toFixed(4)} units)\n` +
+          `<b>Realized P/L:</b> ${realized >= 0 ? "🟢 +" : "🔴 "}${money(realized)}`,
+          "exits"
+        );
       } else {
         pf.cash -= units * px;
         pos.units += units;
         const realized = units * (pos.avgCost - px);
         pf.history.unshift({ ts: Date.now(), type: "exit", sym: pos.sym, units, priceUSD: px, amount: units * px, realized, ccy: pos.ccy, note: `Exit ${Math.round(lvl.portion * 100)}% of short @ ${px.toFixed(2)}` });
+        notifyTelegram(
+          `🎯 <b>TBC Exit Target Triggered</b>\n\n` +
+          `<b>Instrument:</b> ${pos.sym} (SHORT)\n` +
+          `<b>Exit Price:</b> ${money(px)}\n` +
+          `<b>Portion Closed:</b> ${Math.round(lvl.portion * 100)}% (${units.toFixed(4)} units)\n` +
+          `<b>Realized P/L:</b> ${realized >= 0 ? "🟢 +" : "🔴 "}${money(realized)}`,
+          "exits"
+        );
       }
       lvl.filled = Date.now();
       if (Math.abs(pos.units) < 1e-6) pf.positions = pf.positions.filter((x) => x.id !== pos.id);
