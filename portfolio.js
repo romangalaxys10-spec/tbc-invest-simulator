@@ -117,13 +117,15 @@ export function openTelegramModal() {
     </div>
 
     <div class="tg-guide">
-      <b>Quick 1-Minute Setup:</b>
-      <ol>
-        <li>Open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> in Telegram & send <code>/newbot</code> to create your bot & copy its token.</li>
-        <li>Open your new bot in Telegram and press <b>Start</b> (or send <code>/start</code>).</li>
-        <li>Open <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a> to see your numeric <b>Chat ID</b>.</li>
-        <li>Paste both below and click <b>Test & Connect</b>.</li>
-      </ol>
+      <b>Interactive Two-Way Commands:</b>
+      <div class="muted" style="margin-top:4px; font-size:11.5px; line-height:1.4">
+        Once connected, your bot responds directly inside Telegram:<br>
+        • <code>/portfolio</code> or <code>/p</code> — Live equity, cash & open positions<br>
+        • <code>/price &lt;SYM&gt;</code> or <code>/q &lt;SYM&gt;</code> — Live quote & 24h change (e.g. <code>/price AAPL</code>)<br>
+        • <code>/radar</code> — Top 60-day breakouts & market signals<br>
+        • <code>/shreds &lt;SYM&gt;</code> — Live buy/sell cans, DEX flow & whale prints<br>
+        • <code>/help</code> — Full command reference & status
+      </div>
     </div>
 
     <div class="tg-prefs">
@@ -194,6 +196,8 @@ export function openTelegramModal() {
           botToken: bToken,
           chatId: cId,
           testOnly: true,
+          token: cloudToken || null,
+          webhookOrigin: window.location.origin,
         }),
       });
 
@@ -219,7 +223,7 @@ export function openTelegramModal() {
       fb.style.display = "block";
       fb.style.background = "rgba(52,211,153,.15)";
       fb.style.color = "var(--up)";
-      fb.textContent = "✓ Test message sent successfully! Telegram bot is now attached.";
+      fb.textContent = "✓ Connected & two-way commands enabled! Check your Telegram.";
 
       setTimeout(() => { close(); }, 1200);
     } catch (err) {

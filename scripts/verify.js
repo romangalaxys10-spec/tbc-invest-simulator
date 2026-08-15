@@ -90,6 +90,7 @@ const MANIFEST = [
   ["footer-badges", ["index.html", /z\.ai\/subscribe|VibeCodePrompterSystem/]],
   ["telegram-bot-api", ["api/telegram.js", /api\.telegram\.org\/bot/]],
   ["telegram-bot-ui", ["portfolio.js", /openTelegramModal|notifyTelegram/]],
+  ["telegram-bot-interactive", ["api/telegram-webhook.js", /handlePortfolioCommand|handlePriceCommand/]],
 ];
 
 let fail = 0;

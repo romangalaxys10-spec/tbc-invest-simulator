@@ -142,7 +142,7 @@
 | Execute buttons: event delegation (never rAF/direct onclick) | `analysis.js` `.exec-btn` delegation · `patterns.js`/`alerts.js`/`shreds.js` |
 | JS cache-busting (must-revalidate headers) | `vercel.json` headers |
 
-## 11b. Telegram Bot Notifications (Multi-user per token)
+## 11b. Telegram Bot Integration (Multi-user per token)
 
 | Feature | Code |
 |---|---|
@@ -150,6 +150,7 @@
 | Personal bot modal: setup guide, BotFather links, test & save | `portfolio.js` `openTelegramModal` · `index.html` `#telegramModal` |
 | Live notification dispatcher (trades/orders/exits/radar) | `portfolio.js` `notifyTelegram` · `alerts.js` |
 | Cloud sync token attachment for bot configuration | `api/portfolio.js` (telegram schema) · `portfolio.js` `cloudToken` |
+| Interactive 2-Way Commands (`/portfolio`, `/price`, `/radar`, `/shreds`, `/help`) | `api/telegram-webhook.js` · `api/telegram.js` (setWebhook/setMyCommands) |
 
 ## 12. Storage Registry (never migrate blindly)
 
