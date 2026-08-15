@@ -666,24 +666,9 @@ function viewIntel(d) {
 
     <div class="playbook-container" style="margin-top:16px">
       <div class="playbook-header">
-        <div>
-          <span class="playbook-title">💡 Portfolio Construction Insight &amp; Allocation Playbook</span>
-          <span class="playbook-sub">Modern Portfolio Theory (MPT) risk-budgeting framework, cross-asset hedging &amp; stress-test resilience for <b>${d.symbol}</b></span>
-        </div>
-        <span class="macro-impact-badge high" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.35);color:#34d399"><span class="impact-dot" style="background:#34d399;box-shadow:0 0 8px #34d399"></span>MPT OPTIMAL FRONTIER</span>
+        <span class="playbook-title">💡 Portfolio Construction Insight &amp; Allocation Playbook</span>
+        <span class="playbook-sub">Modern Portfolio Theory (MPT) risk-budgeting framework, cross-asset hedging &amp; stress-test resilience for <b>${d.symbol}</b></span>
       </div>
-
-      <div class="playbook-meta-bar" style="margin: 0 0 12px 0;">
-        <span class="playbook-meta-item">🛡️ <b>Target Risk Budget:</b> <span class="playbook-asset-pwr med" style="font-size:10.5px">${maxAllocCap}</span></span>
-        <span class="playbook-meta-item">⚡ <b>Sharpe Boost:</b> <span class="playbook-asset-pwr low" style="font-size:10.5px;color:#38bdf8;background:rgba(56,189,248,0.15);border-color:rgba(56,189,248,0.3)">${sharpeBoost}</span></span>
-        <span class="playbook-meta-item">📉 <b>Tail-Risk Buffer:</b> <span class="playbook-asset-pwr high" style="font-size:10.5px">${drawdownReduction}</span></span>
-        <span class="playbook-meta-item">⚖️ <b>Regime:</b> <span class="playbook-asset-pwr low" style="font-size:10.5px;color:#fbbf24;background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.3)">${beta > 1.2 ? "High Beta Dampener" : "All-Weather Balanced"}</span></span>
-      </div>
-
-      <div class="playbook-mechanism" style="margin-bottom:14px;border-left:3px solid var(--accent);background:rgba(13,10,28,0.65)">
-        <b>Core MPT Allocation Synthesis:</b> Pair <b>${d.symbol}</b> with complementary assets exhibiting correlation <b>$r &lt; 0.25$</b> (such as <b>${hedgeAsset.name}</b> or yield anchors). This non-correlated risk-budgeting framework flattens aggregate portfolio volatility, eliminates single-asset vulnerability, and preserves capital during sudden liquidity drawdowns while compounding long-term capital.
-      </div>
-
       <div class="playbook-grid">
         <!-- Card 1: Natural Hedge -->
         <div class="playbook-card">
@@ -693,17 +678,14 @@ function viewIntel(d) {
               <div class="playbook-trigger-title">${hedgeAsset.name}</div>
               <div class="playbook-trigger-sub">${hedgeAsset.sym} · ${hedgeAsset.cat}</div>
             </div>
-            <span class="playbook-badge bull">🛡️ Optimal Hedge</span>
+            <span class="macro-impact-badge high" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.38);color:#34d399"><span class="impact-dot" style="background:#34d399;box-shadow:0 0 6px #34d399"></span>TOP HEDGE</span>
           </div>
           <div class="playbook-meta-bar">
             <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">20% – 30%</b></span>
             <span class="playbook-meta-item">⚡ Correlation: <b style="color:${hedgeAsset.r < 0 ? 'var(--down)' : 'var(--up)'}">${hedgeAsset.r >= 0 ? '+' : ''}${hedgeAsset.r.toFixed(2)} ($r$)</b></span>
             <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr med">Defensive Shield</span></span>
           </div>
-          <div class="insight-blueprint-progress-track" style="margin:2px 0">
-            <div class="insight-blueprint-progress-fill hedge" style="width:25%"></div>
-          </div>
-          <div class="playbook-mechanism" style="border-left:2px solid #34d399;font-size:10.5px">Offsets portfolio beta and cushions drawdowns when ${d.symbol} faces sharp liquidity contractions.</div>
+          <div class="playbook-mechanism">Offsets portfolio beta and cushions drawdowns when ${d.symbol} faces sharp liquidity contractions.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Shield</span>
@@ -716,7 +698,7 @@ function viewIntel(d) {
               <span class="playbook-asset-hint">Rebalance quarterly to lock in divergence gains</span>
             </div>
           </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${hedgeAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-hedge">⚡ Trade ${hedgeAsset.name}</button>
+          <button class="btn small primary exec-btn" style="width:100%;margin-top:4px" data-sym="${hedgeAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-hedge">⚡ Trade ${hedgeAsset.name}</button>
         </div>
 
         <!-- Card 2: Capital Anchor -->
@@ -727,20 +709,17 @@ function viewIntel(d) {
               <div class="playbook-trigger-title">${anchorAsset.name}</div>
               <div class="playbook-trigger-sub">${anchorAsset.sym} · Yield &amp; Cash Anchor</div>
             </div>
-            <span class="playbook-badge neutral" style="color:#60a5fa;border-color:rgba(96,165,250,0.35);background:rgba(96,165,250,0.15)">⚓ Capital Shield</span>
+            <span class="macro-impact-badge medium"><span class="impact-dot"></span>CAPITAL SHIELD</span>
           </div>
           <div class="playbook-meta-bar">
             <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">15% – 25%</b></span>
             <span class="playbook-meta-item">⚡ Correlation: <b style="color:#60a5fa">${anchorAsset.r >= 0 ? '+' : ''}${anchorAsset.r.toFixed(2)} ($r$)</b></span>
             <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr low">Yield Anchor</span></span>
           </div>
-          <div class="insight-blueprint-progress-track" style="margin:2px 0">
-            <div class="insight-blueprint-progress-fill anchor" style="width:20%"></div>
-          </div>
-          <div class="playbook-mechanism" style="border-left:2px solid #60a5fa;font-size:10.5px">Provides steady yield accrual &amp; dry powder to buy market dips without liquidating core holdings.</div>
+          <div class="playbook-mechanism">Provides steady yield accrual &amp; dry powder to buy market dips without liquidating core holdings.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
-              <span class="playbook-badge neutral" style="color:#60a5fa">⚓ Yield</span>
+              <span class="playbook-badge neutral" style="color:#60a5fa;border-color:rgba(96,165,250,0.35);background:rgba(96,165,250,0.15)">⚓ Yield</span>
               <span class="playbook-asset-name">Risk-Free Baseline <span class="playbook-asset-pwr low">Steady Yield</span></span>
               <span class="playbook-asset-hint">Preserves capital during high macro uncertainty</span>
             </div>
@@ -750,7 +729,7 @@ function viewIntel(d) {
               <span class="playbook-asset-hint">Deploy into high-conviction pullbacks</span>
             </div>
           </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${anchorAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-anchor">⚡ Trade ${anchorAsset.name}</button>
+          <button class="btn small primary exec-btn" style="width:100%;margin-top:4px" data-sym="${anchorAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-anchor">⚡ Trade ${anchorAsset.name}</button>
         </div>
 
         <!-- Card 3: Core Growth Engine -->
@@ -761,17 +740,14 @@ function viewIntel(d) {
               <div class="playbook-trigger-title">${growthAsset.name}</div>
               <div class="playbook-trigger-sub">${growthAsset.sym} · Core Compounding Engine</div>
             </div>
-            <span class="playbook-badge bull" style="color:#c084fc;border-color:rgba(192,132,252,0.35);background:rgba(192,132,252,0.15)">🚀 Compounding</span>
+            <span class="macro-impact-badge high"><span class="impact-dot"></span>CORE ENGINE</span>
           </div>
           <div class="playbook-meta-bar">
             <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">40% – 55%</b></span>
             <span class="playbook-meta-item">⚡ Correlation: <b style="color:#c084fc">${growthAsset.r >= 0 ? '+' : ''}${growthAsset.r.toFixed(2)} ($r$)</b></span>
             <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr high" style="background:rgba(192,132,252,0.18);color:#d8b4fe;border-color:rgba(192,132,252,0.3)">Growth Core</span></span>
           </div>
-          <div class="insight-blueprint-progress-track" style="margin:2px 0">
-            <div class="insight-blueprint-progress-fill growth" style="width:48%"></div>
-          </div>
-          <div class="playbook-mechanism" style="border-left:2px solid #c084fc;font-size:10.5px">Captures long-term corporate productivity gains and broad equity beta with maximum liquidity.</div>
+          <div class="playbook-mechanism">Captures long-term corporate productivity gains and broad equity beta with maximum liquidity.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Upside</span>
@@ -784,7 +760,7 @@ function viewIntel(d) {
               <span class="playbook-asset-hint">Institutional scale efficiency &amp; tight spreads</span>
             </div>
           </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${growthAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-growth">⚡ Trade ${growthAsset.name}</button>
+          <button class="btn small primary exec-btn" style="width:100%;margin-top:4px" data-sym="${growthAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-growth">⚡ Trade ${growthAsset.name}</button>
         </div>
 
         <!-- Card 4: Asymmetric Satellite -->
@@ -795,17 +771,14 @@ function viewIntel(d) {
               <div class="playbook-trigger-title">${asymAsset.name}</div>
               <div class="playbook-trigger-sub">${asymAsset.sym} · ${asymAsset.cat}</div>
             </div>
-            <span class="playbook-badge neutral" style="color:#fbbf24;border-color:rgba(251,191,36,0.35);background:rgba(251,191,36,0.15)">⚡ Convex Alpha</span>
+            <span class="macro-impact-badge low" style="background:rgba(251,191,36,0.14);color:#fbbf24;border-color:rgba(251,191,36,0.38)"><span class="impact-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf24"></span>CONVEX ALPHA</span>
           </div>
           <div class="playbook-meta-bar">
             <span class="playbook-meta-item">🎯 Allocation: <b style="color:var(--text)">5% – 10%</b></span>
             <span class="playbook-meta-item">⚡ Correlation: <b style="color:#fbbf24">${asymAsset.r >= 0 ? '+' : ''}${asymAsset.r.toFixed(2)} ($r$)</b></span>
             <span class="playbook-meta-item">Role: <span class="playbook-asset-pwr low" style="color:#fbbf24;border-color:rgba(251,191,36,0.3)">High Convexity</span></span>
           </div>
-          <div class="insight-blueprint-progress-track" style="margin:2px 0">
-            <div class="insight-blueprint-progress-fill alpha" style="width:10%"></div>
-          </div>
-          <div class="playbook-mechanism" style="border-left:2px solid #fbbf24;font-size:10.5px">Provides high convex upside and exponential participation without risking core portfolio solvency.</div>
+          <div class="playbook-mechanism">Provides high convex upside and exponential participation without risking core portfolio solvency.</div>
           <div class="playbook-assets">
             <div class="playbook-asset-row">
               <span class="playbook-badge bull">🟢 Alpha</span>
@@ -818,14 +791,12 @@ function viewIntel(d) {
               <span class="playbook-asset-hint">Strict position sizing prevents capital erosion</span>
             </div>
           </div>
-          <button class="insight-blueprint-trade-btn exec-btn" data-sym="${asymAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-alpha">⚡ Trade ${asymAsset.name}</button>
+          <button class="btn small primary exec-btn" style="width:100%;margin-top:4px" data-sym="${asymAsset.sym}" data-side="buy" data-lev="1" data-src="playbook-alpha">⚡ Trade ${asymAsset.name}</button>
         </div>
       </div>
 
-      <div class="insight-blueprint-stress-wrap" style="margin-top:14px">
-        <div class="insight-blueprint-stress-head">
-          <span style="font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">📊 MPT Cross-Regime Stress Simulation Playbook</span>
-        </div>
+      <div style="margin-top:16px">
+        <h4 style="margin:0 0 8px 0;font-size:12.5px;font-weight:700;color:var(--text)">📊 MPT Cross-Regime Stress Simulation</h4>
         <div class="macro-table-wrap">
           <table class="macro-table">
             <thead>
