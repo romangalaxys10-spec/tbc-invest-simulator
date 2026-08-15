@@ -149,7 +149,7 @@ body {
 .alert-actions { display: flex; align-items: center; gap: 10px; }
 
 .layout {
-  display: grid; grid-template-columns: 330px 1fr; gap: 20px;
+  display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 20px;
   padding: 22px 28px 60px; max-width: 1440px; margin: 0 auto;
 }
 .panel {
@@ -664,18 +664,55 @@ label[for="tradeTrigger"], #triggerWrap { display: flex; flex-direction: column;
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 
 @media (max-width: 1080px) {
-  .two-col { grid-template-columns: 1fr; }
-  .signal-list { grid-template-columns: 1fr; }
-  .scenario-grid { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .two-col { grid-template-columns: minmax(0, 1fr); }
+  .signal-list { grid-template-columns: minmax(0, 1fr); }
+  .scenario-grid { grid-template-columns: minmax(0, 1fr); }
   .topbar { flex-wrap: wrap; gap: 10px; }
+  .instrument-list { max-height: 40vh; }
+  .controls-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result-grid { grid-template-columns: minmax(0, 1fr); }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 1080px) {
-  .layout { grid-template-columns: 1fr; }
-  .instrument-list { max-height: 40vh; }
-  .controls-grid { grid-template-columns: repeat(2, 1fr); }
-  .result-grid { grid-template-columns: 1fr; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 768px) {
+  .topbar { padding: 12px 14px; gap: 10px; }
+  .brand { gap: 10px; }
+  .brand h1 { font-size: 15px; }
+  .brand p { display: none; }
+  .logo { width: 36px; height: 36px; font-size: 17px; border-radius: 10px; }
+  .asset-tabs { padding: 0 14px; margin: 12px auto -2px; }
+  .tabs { gap: 5px; padding: 6px; }
+  .tabs button { flex: 1 1 calc(33.333% - 6px); min-width: 70px; padding: 7px 6px; font-size: 12px; }
+  .layout { padding: 12px 14px 40px; gap: 14px; }
+  .panel { padding: 14px 12px; }
+  .radar-hero { flex-direction: column; align-items: stretch; gap: 10px; }
+  .radar-stats { width: 100%; justify-content: space-between; }
+  .radar-stat { flex: 1; min-width: 0; padding: 8px 10px; }
+  .radar-grid { grid-template-columns: minmax(0, 1fr); }
+  .controls-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .metrics { grid-template-columns: minmax(0, 1fr); }
+  .bracket-row { grid-template-columns: minmax(0, 1fr); }
+  .target-box { min-width: 0; }
+  .rating-chip { min-width: 0; }
+  .tb-text { min-width: 0; }
+  .modal-overlay { padding: 10px; }
+  .modal { width: 100%; padding: 16px 14px; }
+  .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+  .portfolio-summary { gap: 10px; }
+  .pos-card { min-width: calc(50% - 6px); padding: 12px 14px; }
+  .cd-toolbar-left { width: 100%; justify-content: space-between; }
+  .cd-draw-toolbar { max-width: 100%; overflow-x: auto; }
+}
+
+@media (max-width: 480px) {
+  .tabs button { flex: 1 1 calc(50% - 6px); font-size: 11px; padding: 6px 4px; }
+  .topbar { justify-content: space-between; }
+  .view-nav { order: 3; width: 100%; justify-content: space-between; margin-top: 4px; }
+  .view-nav button { flex: 1; text-align: center; padding: 6px 8px; font-size: 11.5px; }
+  .pos-card { min-width: 100%; }
+  .glmbadge { font-size: 11.5px; padding: 8px 12px; }
+  .alert-banner-toast { left: 12px; right: 12px; bottom: 12px; font-size: 12px; padding: 10px 12px; }
 }
 
 /* ---------- what-if simulator v2 ---------- */
