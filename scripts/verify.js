@@ -96,6 +96,7 @@ const MANIFEST = [
   ["chart-drawings", ["chart.js", /saveDrawings|cd-draw-toolbar/]],
   ["chart-price-alerts", ["chart.js", /checkPriceAlerts|tbc_price_alerts/]],
   ["macro-correlations", ["analysis.js", /viewIntel|Macro Correlations/]],
+  ["polymarket-realtime", ["instruments.js", /polymarket|PM:/]],
 ];
 
 let fail = 0;

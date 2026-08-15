@@ -25,7 +25,7 @@ export const config = { maxDuration: 60 };
 export default async function handler(req, res) {
   const now = Math.floor(Date.now() / 1000);
   const p1 = now - 120 * 86400, p2 = now + 86400;
-  const syms = CATALOG.map((i) => i.sym);
+  const syms = CATALOG.filter((i) => i.cat !== "polymarket").map((i) => i.sym);
 
   const settled = await Promise.allSettled(syms.map((s) => fetchChart(s, p1, p2)));
   const alerts = [];

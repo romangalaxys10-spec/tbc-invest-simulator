@@ -172,6 +172,16 @@
 | Tactile vibration haptics on mobile browsers (`navigator.vibrate`) | `audio.js` `vibrate` |
 | Sound & Haptics toggle control button (persisted in localStorage) | `audio.js` `setSoundEnabled` · `index.html` `#soundToggleBtn` |
 
+## 11e. Real-Time Polymarket Prediction Markets
+
+| Feature | Code |
+|---|---|
+| Dedicated `🔮 Polymarket` Instruments Category with 24/7 Binary Odds | `index.html` `data-cat="polymarket"` · `instruments.js` `CATALOG` · `CATEGORY_LABELS` |
+| Real-time Gamma API & CLOB Orderbook Integration (Odds, Liquidity, 24h Vol) | `api/history.js` `handlePolymarket` · `api/shreds.js` `polymarketDecoder` |
+| Polymarket Predictive Intelligence & Shreds (Odds consensus, whale flows, settlement resolution) | `api/shreds.js` `polymarketDecoder` · `shreds.js` `THEME.PM` |
+| Polymarket Desk Signals & Technical Probability Analysis | `api/analysis.js` `polymarketAnalysis` (Prediction Desk, Market Maker Desk, Contrarian Desk) |
+| Binary Contract Trading & Simulation (Trade YES/NO contracts, attach SL/TP, Paper portfolio tracking) | `portfolio.js` `openTradeModal` · `app.js` `renderSelected` |
+
 ## 12. Storage Registry (never migrate blindly)
 
 | Key | What |

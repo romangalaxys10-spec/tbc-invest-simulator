@@ -260,6 +260,29 @@ export const CATALOG = [
   { sym: "^GSPTSE", name: "TSX Composite", cat: "index", note: "Canada", ccy: "CAD" },
   { sym: "^BVSP", name: "Bovespa", cat: "index", note: "Brazil", ccy: "BRL" },
   { sym: "^TA125.TA", name: "Tel Aviv 125", cat: "index", note: "Israel", ccy: "ILS" },
+  // Polymarket Real-Time Prediction Markets (Macro, Rates, Politics, Tech, Crypto & Global Events)
+  { sym: "PM:2252244", name: "No change in Fed rates (Sept 2026 meeting)?", cat: "polymarket", note: "Polymarket · Fed Monetary Policy", ccy: "USD" },
+  { sym: "PM:2252245", name: "Fed increases interest rates by 25 bps (Sept meeting)?", cat: "polymarket", note: "Polymarket · Fed Monetary Policy", ccy: "USD" },
+  { sym: "PM:2252243", name: "Fed decreases interest rates by 25 bps (Sept meeting)?", cat: "polymarket", note: "Polymarket · Fed Monetary Policy", ccy: "USD" },
+  { sym: "PM:616902", name: "Will no Fed rate cuts happen in 2026?", cat: "polymarket", note: "Polymarket · Fed Monetary Policy", ccy: "USD" },
+  { sym: "PM:908713", name: "Fed rate hike in 2026?", cat: "polymarket", note: "Polymarket · Macro & Rates", ccy: "USD" },
+  { sym: "PM:561229", name: "Will JD Vance win the 2028 US Presidential Election?", cat: "polymarket", note: "Polymarket · 2028 US Politics", ccy: "USD" },
+  { sym: "PM:559652", name: "Will Gavin Newsom win 2028 Dem Presidential Nominee?", cat: "polymarket", note: "Polymarket · 2028 US Politics", ccy: "USD" },
+  { sym: "PM:561973", name: "Will Donald Trump win 2028 GOP Presidential Nominee?", cat: "polymarket", note: "Polymarket · 2028 US Politics", ccy: "USD" },
+  { sym: "PM:679018", name: "Will Marine Le Pen win 2027 French presidential election?", cat: "polymarket", note: "Polymarket · European Politics", ccy: "USD" },
+  { sym: "PM:601818", name: "Will Tarcisio de Freitas win 2026 Brazil presidential election?", cat: "polymarket", note: "Polymarket · Latin America", ccy: "USD" },
+  { sym: "PM:2176270", name: "Strait of Hormuz traffic returns to normal by Dec 31?", cat: "polymarket", note: "Polymarket · Geopolitics & Trade", ccy: "USD" },
+  { sym: "PM:567621", name: "Will China invade Taiwan by end of 2026?", cat: "polymarket", note: "Polymarket · Geopolitics", ccy: "USD" },
+  { sym: "PM:2941315", name: "Will NVIDIA be largest company in the world end of Aug?", cat: "polymarket", note: "Polymarket · Tech & Market Cap", ccy: "USD" },
+  { sym: "PM:2941318", name: "Will Alphabet be largest company in the world end of Aug?", cat: "polymarket", note: "Polymarket · Tech & Market Cap", ccy: "USD" },
+  { sym: "PM:2463838", name: "Will Bitcoin dip to $60,000 in 2026?", cat: "polymarket", note: "Polymarket · Crypto Target", ccy: "USD" },
+  { sym: "PM:2009849", name: "Will the US confirm that aliens exist by April 30?", cat: "polymarket", note: "Polymarket · Science & Culture", ccy: "USD" },
+  { sym: "PM:898409", name: "Will Lando Norris be the 2026 F1 Drivers' Champion?", cat: "polymarket", note: "Polymarket · Formula 1", ccy: "USD" },
+  { sym: "PM:2772182", name: "Will Borussia Dortmund win 2026-27 Champions League?", cat: "polymarket", note: "Polymarket · UEFA Champions League", ccy: "USD" },
+  { sym: "PM:1235547", name: "Will New York Yankees win 2026 World Series?", cat: "polymarket", note: "Polymarket · MLB Baseball", ccy: "USD" },
+  { sym: "PM:3552238", name: "Counter-Strike: FURIA vs 9z (Esports World Cup)", cat: "polymarket", note: "Polymarket · Esports", ccy: "USD" },
+  { sym: "PM:3275573", name: "UFC 330: Islam Makhachev vs. Ian Machado Garry", cat: "polymarket", note: "Polymarket · UFC Mixed Martial Arts", ccy: "USD" },
+  { sym: "PM:3574075", name: "Cincinnati Open: Kecmanovic vs Cobolli", cat: "polymarket", note: "Polymarket · ATP Tennis", ccy: "USD" },
 ];
 
-export const CATEGORY_LABELS = { stock: "Stocks", etf: "ETFs", bond: "Bonds", futures: "Futures", crypto: "Crypto", forex: "Forex", index: "Indices" };
+export const CATEGORY_LABELS = { stock: "Stocks", etf: "ETFs", bond: "Bonds", futures: "Futures", crypto: "Crypto", forex: "Forex", index: "Indices", polymarket: "Polymarket" };

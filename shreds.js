@@ -76,12 +76,13 @@ function liveFlowHtml(d) {
 }
 
 const SHRED_CRYPTO = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
-const SUPPORTED = new Set([...SHRED_CRYPTO, ...CATALOG.filter((i) => ["stock", "etf", "index"].includes(i.cat)).map((i) => i.sym)]);
+const SUPPORTED = new Set([...SHRED_CRYPTO, ...CATALOG.filter((i) => ["stock", "etf", "index", "polymarket"].includes(i.cat)).map((i) => i.sym)]);
 const THEME = {
   BTC: { color: "#f7931a", name: "Bitcoin" },
   EVM: { color: "#627eea", name: "EVM" },
   SOL: { color: "#14f195", name: "Solana" },
   EQ: { color: "#4da3ff", name: "Equity" },
+  PM: { color: "#9333ea", name: "Polymarket" },
 };
 
 const short = (a) => (a && a.length > 10 ? a.slice(0, 4) + "…" + a.slice(-4) : a || "—");
