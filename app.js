@@ -7,6 +7,7 @@ import { store } from "./store.js";
 import { initPatternLab } from "./patterns.js";
 import { initAlerts } from "./alerts.js";
 import { collapse } from "./store.js";
+import { usdRate, gelPerUsd, fmtUsd, fmtGel } from "./fx.js";
 
 // ---------- state ----------
 const state = {
@@ -288,6 +289,16 @@ async function compute() {
     };
   }
 
+  // FX: original ccy → USD → GEL
+  let fxUsd = 1, fxGel = null;
+  try { fxUsd = await usdRate(ccy); fxGel = await gelPerUsd(); } catch {}
+  const conv = (v) => {
+    const usd = v * fxUsd;
+    if (!fxGel) return fmtUsd(usd);
+    return (ccy === "USD" ? "" : fmtUsd(usd) + " · ") + fmtGel(usd * fxGel);
+  };
+  const worthUsd = valueNow * fxUsd;
+
   // Render result card
   const progress = clamp((valueNow - amount) / (goalValue - amount), 0, 1);
   const goalReached = valueNow >= goalValue;
@@ -306,11 +317,12 @@ async function compute() {
         <div class="label">PAPER PROFIT / LOSS — NOW</div>
         <div class="value ${signCls(plNow)}">${fmtMoney(plNow, ccy)}</div>
         <div class="sub ${signCls(pctNow)}">${fmtPct(pctNow)} · ${fmtMoney(amount, ccy)} → ${fmtMoney(valueNow, ccy)}</div>
+        <div class="sub muted" style="font-size:11.5px;margin-top:2px">≈ ${conv(amount)} → <b class="${signCls(plNow)}">${conv(valueNow)}</b></div>
       </div>
       <div class="goal-block">
         <div style="font-size:12px;color:var(--muted);font-weight:600">GOAL +${(target * 100).toFixed(1)}% IN ${horizon} DAYS</div>
         <div class="goal-bar"><div style="width:${(progress * 100).toFixed(1)}%"></div></div>
-        <div style="font-size:12.5px" class="${goalReached ? "pos" : ""}">${(progress * 100).toFixed(0)}% of the way · target ${fmtMoney(goalValue, ccy)}</div>
+        <div style="font-size:12.5px" class="${goalReached ? "pos" : ""}">${(progress * 100).toFixed(0)}% of the way · target ${fmtMoney(goalValue, ccy)} <span class="muted" style="font-size:10.5px">(≈ ${conv(goalValue)})</span></div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px">${goalText}</div>
       </div>
       <div>
@@ -330,6 +342,8 @@ async function compute() {
     <div class="metrics">
       <div class="metric"><div class="k">Entry price</div><div class="v">${fmtMoney(entryPrice, ccy)}</div></div>
       <div class="metric"><div class="k">Latest price</div><div class="v">${fmtMoney(last.c, ccy)}</div></div>
+      <div class="metric"><div class="k">Value (USD)</div><div class="v">${fmtUsd(worthUsd)}</div></div>
+      <div class="metric"><div class="k">Value (GEL)</div><div class="v">${fmtGel(worthUsd * (fxGel || 0))}</div></div>
       <div class="metric"><div class="k">Units held</div><div class="v">${fmtNum(units, 4)}</div></div>
       <div class="metric"><div class="k">Days held</div><div class="v">${daysHeld} / ${horizon}</div></div>
       <div class="metric"><div class="k">Annualized</div><div class="v ${signCls(annualized)}">${fmtPct(annualized)}</div></div>
@@ -358,7 +372,7 @@ async function compute() {
   // narrative sentence
   const nar = document.getElementById("simNarrative");
   if (nar) {
-    nar.innerHTML = `If you had invested <b>${fmtMoney(amount, ccy)}</b> in <b>${inst.sym}</b> on <b>${dstr(entryC.t)}</b>, today you'd have <b class="${signCls(plNow)}">${fmtMoney(valueNow, ccy)} (${fmtPct(pctNow)})</b> — ${goalReached ? `<span class="pos">goal hit${hit ? " after " + Math.round((hit.t - entryC.t) / DAY) + " days ✓" : " ✓"}</span>` : `goal ${(progress * 100).toFixed(0)}% reached`}.`;
+    nar.innerHTML = `If you had invested <b>${fmtMoney(amount, ccy)}</b> in <b>${inst.sym}</b> on <b>${dstr(entryC.t)}</b>, today you'd have <b class="${signCls(plNow)}">${fmtMoney(valueNow, ccy)} (${fmtPct(pctNow)})</b> — ≈ <b>${conv(valueNow)}</b> — ${goalReached ? `<span class="pos">goal hit${hit ? " after " + Math.round((hit.t - entryC.t) / DAY) + " days ✓" : " ✓"}</span>` : `goal ${(progress * 100).toFixed(0)}% reached`}.`;
   }
 
   drawChart({ window, amount, entryAdj, goalValue, ccy, horizonEndTs, entryTs: entryC.t });
@@ -495,7 +509,7 @@ async function refreshCandles(sym) {
     }
     const ch = chartHistCache[sym];
     lastChartCandles = ch.candles;
-    lastChartMeta = { symbol: ch.symbol, currency: ch.currency };
+    lastChartMeta = { symbol: ch.symbol, currency: ch.currency, name: ch.name };
     store.candles = ch.candles;
     store.symbol = ch.symbol;
     updateCandleChart();

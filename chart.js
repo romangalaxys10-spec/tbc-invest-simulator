@@ -12,6 +12,7 @@ let els = {};
 
 const fmt = (v, d = 2) => (v == null ? "—" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
 const dstr = (ts) => new Date(ts).toISOString().slice(0, 10);
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 function sma(a, n) {
   const o = new Array(a.length).fill(null);
@@ -259,6 +260,11 @@ function render() {
       ${axisLabels}
       <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${lastY}" y2="${lastY}" stroke="${lastC.c >= lastC.o ? UP : DOWN}" stroke-dasharray="2 4" opacity="0.6"/>
       <text x="${W - PAD.r + 6}" y="${lastY + 4}" font-size="11" font-weight="700" fill="${lastC.c >= lastC.o ? UP : DOWN}" font-family="ui-monospace">${fmt(lastC.c, lastC.c > 100 ? 0 : 2)}</text>
+      <g class="chart-watermark" pointer-events="none">
+        <text x="${PAD.l + 12}" y="${pt + 36}" font-size="30" font-weight="800" letter-spacing="1.5" fill="rgba(139,92,246,.14)">${esc(state.meta.symbol || "")}</text>
+        <text x="${PAD.l + 12}" y="${pt + 55}" font-size="12.5" font-weight="600" fill="rgba(157,148,184,.38)">${esc(state.meta.name || "")}</text>
+        <text x="${PAD.l + 12}" y="${pt + 72}" font-size="11" font-family="ui-monospace" fill="rgba(157,148,184,.30)">LIVE ${fmt(lastC.c)} ${state.meta.currency ? esc(state.meta.currency) : ""} · ${dstr(lastC.t)}</text>
+      </g>
       ${bbBand}
       ${candlesSvg}
       ${state.overlays.sma20 ? line(ind.s20, "#a78bfa", 1.6) : ""}
