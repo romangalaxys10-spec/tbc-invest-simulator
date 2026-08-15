@@ -5,9 +5,19 @@ import { readFileSync, existsSync } from "node:fs";
 
 const BASE = process.argv[2] || null;
 const cache = {};
+const isApi = (f) => f.startsWith("api/");
 const load = async (f) => {
   if (BASE) {
-    const url = BASE.replace(/\/$/, "") + "/" + f;
+    const root = BASE.replace(/\/$/, "");
+    // API files are serverless functions on prod: verify the endpoint is reachable
+    if (isApi(f)) {
+      const url = root + "/" + f.replace(/\.js$/, "");
+      cache[f] ??= await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then((r) => (r.status === 404 || r.status === 500 ? `__ERR_${r.status}` : `__OK_${r.status} ${f}`))
+        .catch(() => null);
+      return cache[f];
+    }
+    const url = root + "/" + f;
     cache[f] ??= await fetch(url).then((r) => (r.ok ? r.text() : null)).catch(() => null);
     return cache[f];
   }
@@ -80,7 +90,7 @@ let fail = 0;
 console.log(`\n🔍 Feature verify ${BASE ? "→ " + BASE : "→ local files"} (${MANIFEST.length} features)\n`);
 for (const [name, [file, re]] of MANIFEST) {
   const src = await load(file);
-  const ok = src && re.test(src);
+  const ok = BASE && isApi(file) ? !!src && !src.startsWith("__ERR") : !!src && re.test(src);
   if (!ok) fail++;
   console.log(` ${ok ? "✅" : "❌"} ${name.padEnd(26)} ${file}`);
 }
