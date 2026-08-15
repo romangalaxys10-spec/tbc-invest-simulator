@@ -795,3 +795,23 @@ input[type="range"]::-moz-range-thumb {
 .flow-addr { font-family: var(--mono); font-size: 11px; }
 .flow-arrow { color: var(--accent); font-weight: 800; }
 .flow-link { font-size: 10.5px; color: var(--accent-2); font-weight: 600; }
+
+/* shreds: flow map + noob cards */
+.flow-map { background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px; padding: 13px 15px; }
+.flow-map h3 { margin: 0 0 6px; font-size: 13px; }
+.flow-anim { animation: flowdash 0.9s linear infinite; }
+@keyframes flowdash { to { stroke-dashoffset: -17; } }
+.noob-cards h3 { margin: 0 0 9px; font-size: 13px; color: var(--accent-2); }
+.nc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.nc-card {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px; padding: 13px 15px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.nc-card.buy { border-left: 3px solid var(--up); }
+.nc-card.sell { border-left: 3px solid var(--down); }
+.nc-card.mid { border-left: 3px solid #fbbf24; }
+.nc-card.warn { border-left: 3px solid #f97316; }
+.nc-head { display: flex; gap: 9px; align-items: center; font-size: 13.5px; }
+.nc-icon { font-size: 17px; }
+.nc-card p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+.nc-card p b { color: var(--text); }

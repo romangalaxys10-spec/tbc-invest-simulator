@@ -21,6 +21,66 @@ async function loadShreds() {
   render();
 }
 
+
+function flowMapHtml(d, usd) {
+  const stable = d.volUsd.USDC + d.volUsd.USDT;
+  const solSide = d.volUsd.wSOL;
+  const maxV = Math.max(solSide, stable, 1);
+  const wSolStroke = 3 + (solSide / maxV) * 9;
+  const wStableStroke = 3 + (stable / maxV) * 9;
+  const bias = d.buyBias;
+  const biasColor = bias >= 55 ? "#34d399" : bias <= 45 ? "#f87171" : "#fbbf24";
+  return `
+  <div class="flow-map">
+    <h3>🔀 Where the money is flowing <span class="muted" style="font-size:10px;font-weight:500">animated · last ${d.blocksScanned} slots</span></h3>
+    <svg viewBox="0 0 640 170" style="width:100%;height:auto">
+      <line x1="115" y1="60" x2="275" y2="60" stroke="#fbbf24" stroke-width="${wSolStroke}" stroke-dasharray="10 7" class="flow-anim" opacity=".8"/>
+      <line x1="365" y1="60" x2="525" y2="60" stroke="#34d399" stroke-width="${wStableStroke}" stroke-dasharray="10 7" class="flow-anim" opacity=".8"/>
+      <circle cx="90" cy="60" r="34" fill="rgba(251,191,36,.12)" stroke="#fbbf24" stroke-width="2"/>
+      <text x="90" y="57" text-anchor="middle" font-size="11" font-weight="800" fill="#fbbf24">SOL side</text>
+      <text x="90" y="72" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(solSide)}</text>
+      <rect x="275" y="30" width="90" height="60" rx="14" fill="rgba(139,92,246,.14)" stroke="#8b5cf6" stroke-width="2"/>
+      <text x="320" y="54" text-anchor="middle" font-size="11" font-weight="800" fill="#c4b5fd">DEX ROUTER</text>
+      <text x="320" y="70" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${d.dexCalls} calls</text>
+      <circle cx="550" cy="60" r="34" fill="rgba(52,211,153,.12)" stroke="#34d399" stroke-width="2"/>
+      <text x="550" y="57" text-anchor="middle" font-size="11" font-weight="800" fill="#34d399">Stables</text>
+      <text x="550" y="72" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(stable)}</text>
+      <line x1="20" y1="130" x2="620" y2="130" stroke="var(--line)" stroke-width="8" stroke-linecap="round" opacity=".4"/>
+      <line x1="20" y1="130" x2="${20 + (600 * bias) / 100}" y2="130" stroke="${biasColor}" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="${20 + (600 * bias) / 100}" cy="130" r="10" fill="#fff" stroke="${biasColor}" stroke-width="4"/>
+      <text x="20" y="158" font-size="10" fill="#f87171" font-weight="700">SELL FLOW</text>
+      <text x="320" y="158" text-anchor="middle" font-size="11" fill="${biasColor}" font-weight="800">${d.biasLabel.toUpperCase()} · ${bias}%</text>
+      <text x="620" y="158" text-anchor="end" font-size="10" fill="#34d399" font-weight="700">BUY FLOW</text>
+    </svg>
+  </div>`;
+}
+
+function noobCardsHtml(d, usd) {
+  const cards = [];
+  const stable = d.volUsd.USDC + d.volUsd.USDT;
+  if (d.buyBias >= 58) {
+    cards.push({ icon: "🟢", cls: "buy", title: "Flow leans BUY — beginners can dip in", text: `More stablecoins than SOL are hitting the DEXes (${usd(stable)} vs ${usd(d.volUsd.wSOL)}) — buyers are paying up. If you want exposure, a small DCA buy on SOL fits the flow. Keep it small.`, side: "buy" });
+  } else if (d.buyBias <= 42) {
+    cards.push({ icon: "🔴", cls: "sell", title: "Flow leans SELL — sit on your hands", text: `SOL is hitting the DEXes harder than stablecoins (${usd(d.volUsd.wSOL)} vs ${usd(stable)}) — sellers dominate. Beginners: wait, or take partial profit if you hold.`, side: "sell" });
+  } else {
+    cards.push({ icon: "🟡", cls: "mid", title: "Balanced flow — no edge from flow", text: "No strong direction right now. If you want exposure, DCA in small pieces rather than one big buy.", side: null });
+  }
+  if (d.failRate > 0.2) cards.push({ icon: "⚠️", cls: "warn", title: "Chain is congested", text: `${(d.failRate * 100).toFixed(0)}% of transactions are failing — market orders will slip. Use LIMIT orders (order ticket → Limit) instead.`, side: null });
+  if (d.flows[0]?.usd >= 50000) cards.push({ icon: "🐋", cls: "warn", title: `Whale just moved ${usd(d.flows[0].usd)}`, text: "A whale-sized transfer just settled. Expect possible sharp moves — don't chase the green candle; set alerts near support.", side: null });
+  return `
+  <div class="noob-cards">
+    <h3>🧭 Beginner mode — what this means for you</h3>
+    <div class="nc-grid">
+      ${cards.map((c) => `
+        <div class="nc-card ${c.cls}">
+          <div class="nc-head"><span class="nc-icon">${c.icon}</span><b>${c.title}</b></div>
+          <p>${c.text}</p>
+          ${c.side ? `<button class="btn small primary nc-exec" data-side="${c.side}" data-src="Shreds: ${d.biasLabel}">⚡ ${c.side === "buy" ? "Buy" : "Sell"} SOL at market</button>` : ""}
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+
 function render() {
   const box = $("shredsPanel");
   if (!box) return;
@@ -69,6 +129,8 @@ const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b>
       <div class="shred-stat"><span class="n">${data.dexCalls}</span><span class="l">DEX calls</span></div>
       <div class="shred-stat"><span class="n">${usd(data.volUsd.wSOL + data.volUsd.USDC + data.volUsd.USDT)}</span><span class="l">flow scanned</span></div>
     </div>
+    ${flowMapHtml(data, usd)}
+    ${noobCardsHtml(data, usd)}
     <div class="shred-cols">
       <div>
         <div class="shred-insight">

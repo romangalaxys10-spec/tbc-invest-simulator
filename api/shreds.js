@@ -105,6 +105,26 @@ export default async function handler(req, res) {
     const programs = PROGRAMS.map((p) => ({ name: p.name, count: counts[p.id] })).sort((a, b) => b.count - a.count);
     const volUsd = { wSOL: vol.wSOL * (solPrice || 0), USDC: vol.USDC, USDT: vol.USDT };
 
+    // SOL momentum from the chart we already fetched
+    let solChange24h = null, solChange7d = null;
+    try {
+      const cs = solChart ? (solChart.timestamp || []) : [];
+      const cls = solChart ? (solChart.indicators?.quote?.[0]?.close || []) : [];
+      const lastC = cls[cls.length - 1];
+      if (lastC && cls.length > 2) solChange24h = lastC / cls[cls.length - 2] - 1;
+      if (lastC && cls.length > 8) solChange7d = lastC / cls[cls.length - 8] - 1;
+    } catch {}
+
+    // flow bias: stablecoin share vs SOL share into DEX flow, adjusted by momentum & congestion
+    const stableVolUsd = volUsd.USDC + volUsd.USDT;
+    const totalFlow = stableVolUsd + volUsd.wSOL;
+    let buyBias = 50;
+    if (totalFlow > 0) buyBias += ((stableVolUsd / totalFlow) - 0.5) * 60;
+    if (solChange24h != null) buyBias += solChange24h > 0 ? 8 : -8;
+    if (totalTx && fails / totalTx > 0.18) buyBias = 50 + (buyBias - 50) * 0.6; // congestion = uncertainty
+    buyBias = Math.max(2, Math.min(98, Math.round(buyBias)));
+    const biasLabel = buyBias >= 65 ? "Strong buy flow" : buyBias >= 55 ? "Buy lean" : buyBias > 45 ? "Balanced" : buyBias > 35 ? "Sell lean" : "Strong sell flow";
+
     res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=15");
     res.status(200).json({
       slot, solPrice, tps: +tps.toFixed(0), slotMs: +slotMs.toFixed(0),
@@ -112,7 +132,7 @@ export default async function handler(req, res) {
       totalTx, failRate: totalTx ? +(fails / totalTx).toFixed(3) : null,
       dexCalls: programs.reduce((s, p) => s + p.count, 0),
       flows: flows.slice(0, 10),
-      programs, volUsd,
+      programs, volUsd, solChange24h: solChange24h != null ? +solChange24h.toFixed(4) : null, solChange7d: solChange7d != null ? +solChange7d.toFixed(4) : null, buyBias, biasLabel,
       fetchedAt: Date.now(),
     });
   } catch (e) {
