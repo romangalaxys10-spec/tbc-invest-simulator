@@ -9,9 +9,17 @@ let data = null, timer = null;
 const short = (a) => (a ? a.slice(0, 4) + "…" + a.slice(-4) : "—");
 const fmtAmt = (w) => (w.kind === "SOL" ? `◎${w.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : `$${w.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`);
 
+const PKEY = "tbc_shred_providers";
+const getProviders = () => { try { return JSON.parse(localStorage.getItem(PKEY)) || []; } catch { return []; } };
+const setProviders = (list) => localStorage.setItem(PKEY, JSON.stringify(list));
+
 async function loadShreds() {
   try {
-    const r = await fetch("/api/shreds");
+    const r = await fetch("/api/shreds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ providers: getProviders() }),
+    });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
     data = j;
@@ -26,31 +34,54 @@ function flowMapHtml(d, usd) {
   const stable = d.volUsd.USDC + d.volUsd.USDT;
   const solSide = d.volUsd.wSOL;
   const maxV = Math.max(solSide, stable, 1);
-  const wSolStroke = 3 + (solSide / maxV) * 9;
-  const wStableStroke = 3 + (stable / maxV) * 9;
+  const wSol = 4 + (solSide / maxV) * 10;
+  const wSt = 4 + (stable / maxV) * 10;
   const bias = d.buyBias;
-  const biasColor = bias >= 55 ? "#34d399" : bias <= 45 ? "#f87171" : "#fbbf24";
+  const bCol = bias >= 55 ? "#34d399" : bias <= 45 ? "#f87171" : "#fbbf24";
+  const bx = 20 + (600 * bias) / 100;
+  const secs = d.blocksScanned * 0.4;
+  const vel = secs > 0 ? (solSide + stable) / secs : 0;
+  const nSol = Math.min(4, Math.max(1, Math.round((solSide / maxV) * 4)));
+  const nSt = Math.min(4, Math.max(1, Math.round((stable / maxV) * 4)));
+  const parts = (n, color, dur) => Array.from({ length: n }, (_, i) =>
+    `<circle r="3.4" fill="${color}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M115,52 C160,30 220,30 275,52"/></circle>` +
+    `<circle r="3.4" fill="${color}"><animateMotion dur="${dur}s" begin="${(i * dur) / n}s" repeatCount="indefinite" path="M365,52 C420,74 480,74 525,52"/></circle>`
+  ).join("");
   return `
   <div class="flow-map">
-    <h3>🔀 Where the money is flowing <span class="muted" style="font-size:10px;font-weight:500">animated · last ${d.blocksScanned} slots</span></h3>
-    <svg viewBox="0 0 640 170" style="width:100%;height:auto">
-      <line x1="115" y1="60" x2="275" y2="60" stroke="#fbbf24" stroke-width="${wSolStroke}" stroke-dasharray="10 7" class="flow-anim" opacity=".8"/>
-      <line x1="365" y1="60" x2="525" y2="60" stroke="#34d399" stroke-width="${wStableStroke}" stroke-dasharray="10 7" class="flow-anim" opacity=".8"/>
-      <circle cx="90" cy="60" r="34" fill="rgba(251,191,36,.12)" stroke="#fbbf24" stroke-width="2"/>
-      <text x="90" y="57" text-anchor="middle" font-size="11" font-weight="800" fill="#fbbf24">SOL side</text>
-      <text x="90" y="72" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(solSide)}</text>
-      <rect x="275" y="30" width="90" height="60" rx="14" fill="rgba(139,92,246,.14)" stroke="#8b5cf6" stroke-width="2"/>
-      <text x="320" y="54" text-anchor="middle" font-size="11" font-weight="800" fill="#c4b5fd">DEX ROUTER</text>
-      <text x="320" y="70" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${d.dexCalls} calls</text>
-      <circle cx="550" cy="60" r="34" fill="rgba(52,211,153,.12)" stroke="#34d399" stroke-width="2"/>
-      <text x="550" y="57" text-anchor="middle" font-size="11" font-weight="800" fill="#34d399">Stables</text>
-      <text x="550" y="72" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(stable)}</text>
-      <line x1="20" y1="130" x2="620" y2="130" stroke="var(--line)" stroke-width="8" stroke-linecap="round" opacity=".4"/>
-      <line x1="20" y1="130" x2="${20 + (600 * bias) / 100}" y2="130" stroke="${biasColor}" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="${20 + (600 * bias) / 100}" cy="130" r="10" fill="#fff" stroke="${biasColor}" stroke-width="4"/>
-      <text x="20" y="158" font-size="10" fill="#f87171" font-weight="700">SELL FLOW</text>
-      <text x="320" y="158" text-anchor="middle" font-size="11" fill="${biasColor}" font-weight="800">${d.biasLabel.toUpperCase()} · ${bias}%</text>
-      <text x="620" y="158" text-anchor="end" font-size="10" fill="#34d399" font-weight="700">BUY FLOW</text>
+    <div class="fm-head">
+      <h3>🔀 Where the money is flowing</h3>
+      <div class="fm-badges">
+        <span class="chip neutral">⚡ ${usd(vel)}/sec velocity</span>
+        <span class="chip good">USDC ${usd(d.volUsd.USDC)}</span>
+        <span class="chip good">USDT ${usd(d.volUsd.USDT)}</span>
+      </div>
+    </div>
+    <svg viewBox="0 0 640 180" style="width:100%;height:auto">
+      <defs>
+        <linearGradient id="pipeSol" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fbbf24" stop-opacity=".9"/><stop offset="1" stop-color="#8b5cf6" stop-opacity=".9"/></linearGradient>
+        <linearGradient id="pipeSt" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".9"/><stop offset="1" stop-color="#34d399" stop-opacity=".9"/></linearGradient>
+        <filter id="glow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path d="M115,52 C160,30 220,30 275,52" fill="none" stroke="url(#pipeSol)" stroke-width="${wSol}" stroke-linecap="round" opacity=".55"/>
+      <path d="M365,52 C420,74 480,74 525,52" fill="none" stroke="url(#pipeSt)" stroke-width="${wSt}" stroke-linecap="round" opacity=".55"/>
+      <g filter="url(#glow)">${parts(nSol, "#fbbf24", 1.6)}${parts(nSt, "#34d399", 1.6)}</g>
+      <circle cx="90" cy="52" r="36" fill="rgba(251,191,36,.10)" stroke="#fbbf24" stroke-width="2.5"/>
+      <text x="90" y="48" text-anchor="middle" font-size="11.5" font-weight="800" fill="#fbbf24">SOL side</text>
+      <text x="90" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(solSide)}</text>
+      <rect x="272" y="24" width="96" height="56" rx="16" fill="rgba(139,92,246,.15)" stroke="#8b5cf6" stroke-width="2.5" filter="url(#glow)"/>
+      <text x="320" y="47" text-anchor="middle" font-size="10.5" font-weight="800" fill="#c4b5fd">DEX ROUTER</text>
+      <text x="320" y="63" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${d.dexCalls} calls</text>
+      <circle cx="550" cy="52" r="36" fill="rgba(52,211,153,.10)" stroke="#34d399" stroke-width="2.5"/>
+      <text x="550" y="48" text-anchor="middle" font-size="11.5" font-weight="800" fill="#34d399">Stables</text>
+      <text x="550" y="64" text-anchor="middle" font-size="10" fill="#9d94b8" font-family="ui-monospace">${usd(stable)}</text>
+      <line x1="20" y1="140" x2="620" y2="140" stroke="#2a2140" stroke-width="10" stroke-linecap="round"/>
+      <line x1="20" y1="140" x2="620" y2="140" stroke="url(#biasGrad)" stroke-width="10" stroke-linecap="round" opacity=".25"/>
+      <line x1="20" y1="140" x2="${bx}" y2="140" stroke="${bCol}" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="${bx}" cy="140" r="9" fill="#fff" stroke="${bCol}" stroke-width="4" filter="url(#glow)"/>
+      <text x="20" y="168" font-size="10" fill="#f87171" font-weight="700">SELL FLOW</text>
+      <text x="320" y="168" text-anchor="middle" font-size="11.5" fill="${bCol}" font-weight="800">${d.biasLabel.toUpperCase()} · ${bias}%</text>
+      <text x="620" y="168" text-anchor="end" font-size="10" fill="#34d399" font-weight="700">BUY FLOW</text>
     </svg>
   </div>`;
 }
@@ -118,6 +149,8 @@ const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b>
         <span class="chip neutral">slots ${data.slotsRange ? data.slotsRange[0] + "–" + data.slotsRange[1] : data.slot}</span>
         <span class="chip neutral">SOL $${data.solPrice?.toFixed(2) ?? "—"}</span>
         <span class="muted" style="font-size:11px">refreshed ${t}</span>
+        ${(data.providers || []).map((p) => `<span class="prov-chip ${p.ok ? "ok" : "bad"}" title="${p.err || p.ms + "ms"}">${p.ok ? "●" : "○"} ${p.host} ${p.ms}ms</span>`).join("")}
+        <button class="btn small" id="shredsConnect" title="Connect external shred/RPC provider">＋ Provider</button>
         <button class="btn small" id="shredsRefresh">↻</button>
       </div>
     </div>
@@ -169,9 +202,71 @@ const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b>
   wire();
 }
 
+async function openProviderModal() {
+  const overlay = document.getElementById("providerModal");
+  const body = document.getElementById("providerBody");
+  overlay.style.display = "grid";
+  const renderModal = (test) => {
+    const list = getProviders();
+    body.innerHTML = `
+      <h3>🔌 External shred providers</h3>
+      <div class="sub">Add your own Solana RPC / shred-bridge endpoints (Helius, QuickNode, dRPC, your node, a Jito ShredStream proxy bridge…). Up to 3, https only. They merge into the scan and show health chips above.</div>
+      <div class="prov-list">
+        ${list.length ? list.map((p, i) => `
+          <div class="prov-row"><span class="muted mono">🔗</span><span class="mono">${p.url}</span>
+          <button class="btn small danger" data-rm="${i}">✕</button></div>`).join("")
+        : '<p class="hint">No external providers — using built-in free RPCs.</p>'}
+      </div>
+      <label>Provider URL (https://…)
+        <input type="url" id="provUrl" placeholder="https://solana.drpc.org" />
+      </label>
+      <label>API key (optional — sent as Bearer token)
+        <input type="password" id="provKey" placeholder="leave empty for public endpoints" />
+      </label>
+      <div class="summary-box" id="provTest">${test || "Test before saving — checks slot height + latency."}</div>
+      <div class="modal-actions">
+        <button class="btn" id="provClose">Close</button>
+        <button class="btn small" id="provTestBtn">Test</button>
+        <button class="btn primary" id="provSave">Save provider</button>
+      </div>`;
+    body.querySelectorAll("[data-rm]").forEach((el) => el.onclick = () => {
+      const l = getProviders(); l.splice(+el.dataset.rm, 1); setProviders(l); renderModal();
+    });
+    document.getElementById("provClose").onclick = () => (overlay.style.display = "none");
+    document.getElementById("provTestBtn").onclick = async () => {
+      const url = document.getElementById("provUrl").value.trim();
+      const key = document.getElementById("provKey").value.trim() || null;
+      if (!url.startsWith("https://")) { document.getElementById("provTest").innerHTML = '<span class="neg">Must be an https:// URL</span>'; return; }
+      document.getElementById("provTest").innerHTML = "Testing…";
+      try {
+        const r = await fetch("/api/shreds?probe=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providers: [{ url, key }] }) });
+        const j = await r.json();
+        const stat = (j.providers || []).find((p) => p.host === new URL(url).host);
+        document.getElementById("provTest").innerHTML = stat
+          ? (stat.ok ? `<span class="pos">✓ ${stat.host} responded in ${stat.ms}ms</span>` : `<span class="neg">✗ ${stat.host}: ${stat.err || "failed"}</span>`)
+          : '<span class="neg">No response recorded</span>';
+      } catch (e) { document.getElementById("provTest").innerHTML = `<span class="neg">${e.message}</span>`; }
+    };
+    document.getElementById("provSave").onclick = () => {
+      const url = document.getElementById("provUrl").value.trim();
+      const key = document.getElementById("provKey").value.trim() || null;
+      if (!url.startsWith("https://")) return;
+      const l = getProviders();
+      if (l.length >= 3) { alert("Max 3 external providers"); return; }
+      if (l.some((p) => p.url === url)) { alert("Already added"); return; }
+      l.push({ url, key }); setProviders(l);
+      overlay.style.display = "none";
+      loadShreds();
+    };
+  };
+  renderModal();
+}
+
 function wire() {
   const b = $("shredsRefresh");
   if (b) b.onclick = () => loadShreds();
+  const cb = $("shredsConnect");
+  if (cb) cb.onclick = openProviderModal;
 }
 
 export function initShreds() {

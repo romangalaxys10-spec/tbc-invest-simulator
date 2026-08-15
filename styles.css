@@ -815,3 +815,16 @@ input[type="range"]::-moz-range-thumb {
 .nc-icon { font-size: 17px; }
 .nc-card p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.65; }
 .nc-card p b { color: var(--text); }
+
+/* shreds: providers + flow map v2 */
+.prov-chip { font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.prov-chip.ok { color: var(--up); border-color: rgba(52,211,153,.35); }
+.prov-chip.bad { color: var(--down); border-color: rgba(248,113,113,.35); }
+.prov-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.prov-row { display: flex; align-items: center; gap: 9px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font-size: 12px; }
+.prov-row .mono { font-family: var(--mono); font-size: 11.5px; flex: 1; word-break: break-all; }
+.modal label { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); font-weight: 600; margin: 10px 0 0; }
+.modal input[type="url"], .modal input[type="password"] { padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 13px; color-scheme: dark; }
+.fm-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.fm-head h3 { margin: 0; font-size: 13px; }
+.fm-badges { display: flex; gap: 6px; flex-wrap: wrap; }

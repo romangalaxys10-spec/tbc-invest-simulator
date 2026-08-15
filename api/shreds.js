@@ -6,25 +6,45 @@
 
 import { fetchChart } from "../lib/yahoo.js";
 
-const RPCS = ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
+const BUILTIN = ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
 
-async function rpc(method, params = []) {
+function safeProvider(u) {
+  try {
+    const x = new URL(u);
+    if (x.protocol !== "https:") return null;
+    const h = x.hostname;
+    if (/^(localhost|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || h === "::1" || h.endsWith(".local") || h.endsWith(".internal")) return null;
+    return x.toString();
+  } catch {
+    return null;
+  }
+}
+
+const providerStats = new Map();
+async function rpc(method, params = [], pool = null) {
+  const urls = pool || BUILTIN;
   let lastErr;
-  for (const url of RPCS) {
+  for (const url of urls) {
+    const t0 = Date.now();
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 9000);
-      const r = await fetch(url, {
+      const ep = typeof url === "string" ? { url, key: null } : url;
+      const r = await fetch(ep.url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(ep.key ? { Authorization: `Bearer ${ep.key}` } : {}) },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
         signal: ctrl.signal,
       });
       clearTimeout(t);
       const j = await r.json();
       if (j.error) throw new Error(j.error.message);
+      const host = new URL(ep.url).host;
+      providerStats.set(host, { host, ms: Date.now() - t0, ok: true });
       return j.result;
     } catch (e) {
+      const host2 = new URL(ep.url).host;
+      providerStats.set(host2, { host: host2, ms: Date.now() - t0, ok: false, err: e.message?.slice(0, 60) });
       lastErr = e;
     }
   }
@@ -47,9 +67,29 @@ const MINTS = {
 
 export default async function handler(req, res) {
   try {
+    // external providers: POST {providers:[{url,key}]} or ?providers=url1,url2 — max 3, https only
+    let pool = [...BUILTIN];
+    let incoming = [];
+    try {
+      if (req.method === "POST" && req.body?.providers) incoming = req.body.providers;
+      else if (req.query.providers) incoming = String(req.query.providers).split(",").map((u) => ({ url: u }));
+    } catch {}
+    incoming = incoming.filter((p) => p?.url).slice(0, 3);
+    const safe = incoming.map((p) => safeProvider(p.url)).filter(Boolean);
+    for (let i = 0; i < safe.length; i++) {
+      pool.unshift({ url: safe[i], key: incoming.find((p) => safeProvider(p.url) === safe[i])?.key || null });
+    }
+    const withAuth = (u) => (typeof u === "string" ? { url: u, key: null } : u);
+    const rpcPool = pool.map(withAuth);
+    // probe mode: health-check providers only
+    if (req.query.probe === "1") {
+      await Promise.allSettled([rpc("getEpochInfo", [], rpcPool)]);
+      return res.status(200).json({ providers: [...providerStats.values()], slot: null, probedAt: Date.now() });
+    }
+
     const [perf, info, solChart] = await Promise.all([
-      rpc("getRecentPerformanceSamples", [6]),
-      rpc("getEpochInfo"),
+      rpc("getRecentPerformanceSamples", [6], rpcPool),
+      rpc("getEpochInfo", [], rpcPool),
       fetchChart("SOL-USD", Math.floor(Date.now() / 1000) - 5 * 86400, Math.floor(Date.now() / 1000) + 86400).catch(() => null),
     ]);
     const solPrice = solChart?.meta?.regularMarketPrice ?? null;
@@ -61,7 +101,7 @@ export default async function handler(req, res) {
     const blocks = (
       await Promise.all(
         [2, 3, 4, 5, 6, 7, 8, 9].map((off) =>
-          rpc("getBlock", [slot - off, { encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0, commitment: "confirmed" }]).catch(() => null)
+          rpc("getBlock", [slot - off, { encoding: "jsonParsed", transactionDetails: "full", rewards: false, maxSupportedTransactionVersion: 0, commitment: "confirmed" }], rpcPool).catch(() => null)
         )
       )
     ).filter(Boolean);
@@ -132,7 +172,7 @@ export default async function handler(req, res) {
       totalTx, failRate: totalTx ? +(fails / totalTx).toFixed(3) : null,
       dexCalls: programs.reduce((s, p) => s + p.count, 0),
       flows: flows.slice(0, 10),
-      programs, volUsd, solChange24h: solChange24h != null ? +solChange24h.toFixed(4) : null, solChange7d: solChange7d != null ? +solChange7d.toFixed(4) : null, buyBias, biasLabel,
+      programs, volUsd, solChange24h: solChange24h != null ? +solChange24h.toFixed(4) : null, solChange7d: solChange7d != null ? +solChange7d.toFixed(4) : null, buyBias, biasLabel, providers: [...providerStats.values()],
       fetchedAt: Date.now(),
     });
   } catch (e) {
