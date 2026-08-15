@@ -2,6 +2,7 @@
 // Base currency: USD. GBP instruments converted at live FX (GBPUSD=X).
 
 import { CATALOG } from "./instruments.js";
+import { soundFx } from "./audio.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "tbc_portfolio_v2";

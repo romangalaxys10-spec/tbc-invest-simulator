@@ -91,6 +91,11 @@ const MANIFEST = [
   ["telegram-bot-api", ["api/telegram.js", /api\.telegram\.org\/bot/]],
   ["telegram-bot-ui", ["portfolio.js", /openTelegramModal|notifyTelegram/]],
   ["telegram-bot-interactive", ["api/telegram-webhook.js", /handlePortfolioCommand|handlePriceCommand/]],
+  ["sound-haptics", ["audio.js", /soundFx|getAudioContext/]],
+  ["chart-timeframes", ["chart.js", /aggregateCandles|cd-timeframes/]],
+  ["chart-drawings", ["chart.js", /saveDrawings|cd-draw-toolbar/]],
+  ["chart-price-alerts", ["chart.js", /checkPriceAlerts|tbc_price_alerts/]],
+  ["macro-correlations", ["analysis.js", /viewIntel|Macro Correlations/]],
 ];
 
 let fail = 0;

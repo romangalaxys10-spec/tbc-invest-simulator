@@ -7,6 +7,7 @@ import { store } from "./store.js";
 import { initPatternLab } from "./patterns.js";
 import { initAlerts } from "./alerts.js";
 import { initShreds } from "./shreds.js";
+import { initSoundUI } from "./audio.js";
 import { collapse } from "./store.js";
 import { usdRate, gelPerUsd, fmtUsd, fmtGel } from "./fx.js";
 
@@ -681,6 +682,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initPatternLab();
   initAlerts();
   initShreds();
+  initSoundUI();
 window.addEventListener("show-simulator", () => navSim?.click());
 document.getElementById("seeResultBtn")?.addEventListener("click", () => {
   const panel = document.querySelector('[data-section="result"]');

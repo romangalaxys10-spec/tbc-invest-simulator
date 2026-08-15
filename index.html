@@ -27,6 +27,7 @@
       <span id="liveText">Connecting…</span>
       <button id="refreshBtn" title="Refresh prices">↻</button>
     </div>
+    <button class="sound-toggle-btn" id="soundToggleBtn" title="Sound & haptics enabled (click to mute)">🔊</button>
     <button class="alert-bell" id="alertBell" title="Intraday signals &amp; alerts">🔔<span class="alert-count" id="alertCount"></span></button>
   </header>
 
@@ -128,17 +129,33 @@
         <div class="panel-body" id="chartBody">
         <div id="candleWrap">
           <div class="cd-toolbar">
-            <div class="cd-ranges">
-              <button data-n="22">1M</button>
-              <button data-n="66" class="active">3M</button>
-              <button data-n="132">6M</button>
-              <button data-n="252">1Y</button>
+            <div class="cd-toolbar-left">
+              <div class="cd-timeframes">
+                <button data-tf="1D" class="active">1D</button>
+                <button data-tf="1W">1W</button>
+                <button data-tf="1M">1M</button>
+              </div>
+              <div class="cd-ranges">
+                <button data-n="22">1M</button>
+                <button data-n="66" class="active">3M</button>
+                <button data-n="132">6M</button>
+                <button data-n="252">1Y</button>
+              </div>
+            </div>
+            <div class="cd-draw-toolbar">
+              <span class="cd-tool-label">Tools:</span>
+              <button data-tool="pointer" class="active" title="Cursor / Inspect">👆</button>
+              <button data-tool="ray" title="Horizontal Support/Resistance Ray">⎯ S/R</button>
+              <button data-tool="trendline" title="2-Point Trendline">╱ Trend</button>
+              <button data-tool="alert" title="Click price level to set Chart Alert">🔔 Alert</button>
+              <button data-tool="clear" class="cd-clear-draw" title="Clear drawings on this chart">🗑</button>
             </div>
             <div class="cd-toggles">
               <label><input type="checkbox" data-o="sma20" checked /> SMA20</label>
               <label><input type="checkbox" data-o="sma50" checked /> SMA50</label>
               <label><input type="checkbox" data-o="sma200" checked /> SMA200</label>
               <label><input type="checkbox" data-o="bb" /> Bollinger</label>
+              <label><input type="checkbox" data-o="fib" /> Fibonacci</label>
               <label><input type="checkbox" data-o="waves" checked /> Elliott &amp; Patterns</label>
             </div>
           </div>
@@ -175,6 +192,7 @@
             <button data-a="tech">Technicals</button>
             <button data-a="fund">Fundamentals</button>
             <button data-a="events">Events &amp; Impact</button>
+            <button data-a="intel">🧠 Intelligence &amp; Heatmap</button>
             <button data-a="waves">Waves &amp; Patterns</button>
             <button data-a="news">News</button>
           </div>

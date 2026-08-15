@@ -1,5 +1,9 @@
-// Candlestick chart with indicator overlays, sub-panels and on-chart signals.
+// Candlestick chart with indicator overlays, sub-panels, on-chart signals,
+// multi-timeframe aggregation (1D / 1W / 1M), drawing tools (trendline, S/R ray, Fib),
+// and interactive chart price alerts with sound & Telegram alerts.
 import { analyzeWaves } from "./waves.js";
+import { soundFx } from "./audio.js";
+import { notifyTelegram } from "./portfolio.js";
 
 const W = 940;
 const PAD = { l: 8, r: 78 };
@@ -7,12 +11,83 @@ const P = { price: [14, 330], vol: [344, 402], rsi: [414, 482], macd: [494, 586]
 const H = 604;
 const UP = "#34d399", DOWN = "#f87171";
 
-const state = { range: 66, overlays: { sma20: true, sma50: true, sma200: true, bb: false, waves: true }, candles: [], meta: {}, hover: -1, waves: null };
+const state = {
+  range: 66,
+  timeframe: "1D",
+  drawTool: "pointer", // "pointer" | "trendline" | "ray" | "fib" | "alert"
+  drawState: null, // temporary point when drawing lines
+  drawings: [], // array of drawing objects
+  alerts: [], // array of price alerts { id, sym, price, condition: "above"|"below", active: true }
+  overlays: { sma20: true, sma50: true, sma200: true, bb: false, waves: true, fib: false },
+  rawCandles: [],
+  candles: [],
+  meta: {},
+  hover: -1,
+  waves: null,
+};
 let els = {};
 
 const fmt = (v, d = 2) => (v == null ? "—" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
 const dstr = (ts) => new Date(ts).toISOString().slice(0, 10);
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// ---------- drawing persistence ----------
+function getDrawingsKey(sym) {
+  return "tbc_drawings_" + (sym || "global");
+}
+function loadDrawings(sym) {
+  try {
+    return JSON.parse(localStorage.getItem(getDrawingsKey(sym)) || "[]");
+  } catch { return []; }
+}
+function saveDrawings(sym, list) {
+  try { localStorage.setItem(getDrawingsKey(sym), JSON.stringify(list)); } catch {}
+}
+
+// ---------- price alerts persistence ----------
+const ALERTS_KEY = "tbc_price_alerts";
+function loadAlerts() {
+  try {
+    return JSON.parse(localStorage.getItem(ALERTS_KEY) || "[]");
+  } catch { return []; }
+}
+function saveAlerts(list) {
+  try { localStorage.setItem(ALERTS_KEY, JSON.stringify(list)); } catch {}
+}
+
+// ---------- timeframe aggregation ----------
+function aggregateCandles(candles, tf) {
+  if (!candles || !candles.length || tf === "1D") return candles;
+  const out = [];
+  let cur = null;
+  for (const k of candles) {
+    const d = new Date(k.t);
+    let key;
+    if (tf === "1W") {
+      const day = d.getUTCDay();
+      const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+      const wDate = new Date(d);
+      wDate.setUTCDate(diff);
+      key = `${wDate.getUTCFullYear()}-W${Math.floor(wDate.getUTCDate() / 7)}`;
+    } else if (tf === "1M") {
+      key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
+    }
+    if (!cur || cur.key !== key) {
+      if (cur) out.push(cur.candle);
+      cur = {
+        key,
+        candle: { t: k.t, o: k.o, h: k.h, l: k.l, c: k.c, v: k.v || 0 }
+      };
+    } else {
+      cur.candle.h = Math.max(cur.candle.h, k.h);
+      cur.candle.l = Math.min(cur.candle.l, k.l);
+      cur.candle.c = k.c;
+      cur.candle.v = (cur.candle.v || 0) + (k.v || 0);
+    }
+  }
+  if (cur) out.push(cur.candle);
+  return out;
+}
 
 function sma(a, n) {
   const o = new Array(a.length).fill(null);
@@ -95,9 +170,48 @@ function detectSignals(candles, ind) {
   return out;
 }
 
+// Check if any price alerts were triggered
+export function checkPriceAlerts(sym, currentPrice) {
+  const alerts = loadAlerts();
+  let changed = false;
+  for (const a of alerts) {
+    if (!a.active || a.sym !== sym) continue;
+    const hit = a.condition === "above" ? currentPrice >= a.price : currentPrice <= a.price;
+    if (hit) {
+      a.active = false;
+      a.triggeredAt = Date.now();
+      changed = true;
+      soundFx.alert();
+      notifyTelegram(
+        `🚨 <b>TBC Chart Price Alert Triggered</b>\n\n` +
+        `<b>Symbol:</b> ${sym}\n` +
+        `<b>Target Level:</b> ${fmt(a.price)}\n` +
+        `<b>Current Price:</b> ${fmt(currentPrice)}\n` +
+        `<b>Condition:</b> Price crossed ${a.condition.toUpperCase()} target level.`,
+        "radar"
+      );
+      showInAppNotification(`🔔 Alert triggered for ${sym} at ${fmt(currentPrice)} (target: ${fmt(a.price)})`);
+    }
+  }
+  if (changed) {
+    saveAlerts(alerts);
+    state.alerts = alerts;
+    render();
+  }
+}
+
+function showInAppNotification(msg) {
+  const notif = document.createElement("div");
+  notif.className = "alert-banner-toast";
+  notif.innerHTML = `<span>${msg}</span><button class="btn small">✕</button>`;
+  document.body.appendChild(notif);
+  notif.querySelector("button").onclick = () => notif.remove();
+  setTimeout(() => notif.remove(), 7000);
+}
+
 function render() {
   const { candles, meta } = state;
-  if (!candles || candles.length < 30) {
+  if (!candles || candles.length < 10) {
     els.svgWrap.innerHTML = `<p class="hint">Not enough price history for the candle chart.</p>`;
     els.legend.innerHTML = "";
     return;
@@ -127,6 +241,7 @@ function render() {
   lo -= padP; hi += padP;
   const [pt, pb] = P.price;
   const py = (v) => pt + (1 - (v - lo) / (hi - lo)) * (pb - pt);
+  const invPy = (y) => lo + (1 - (y - pt) / (pb - pt)) * (hi - lo);
 
   const vmax = Math.max(...view.map((k) => k.v || 0), 1);
   const [vt, vb] = P.vol;
@@ -211,7 +326,6 @@ function render() {
       <title>${pat.name} (${pat.dir}, ${pat.status}) — ${pat.detail}. Level ${fmt(pat.level)}, target ${fmt(pat.target)}</title>`;
     }).join("");
 
-    // trade plan lines for the highest-priority pattern
     const top = wz.patterns[0];
     if (top && top.plan) {
       const pl = top.plan;
@@ -224,6 +338,68 @@ function render() {
       wavesSvg += pline(pl.entry, "#c4b5fd", "E", "6 4") + pline(pl.stop, "#f87171", "S", "3 4") +
         pline(pl.t1, "#34d399", "T1", "3 4") + pline(pl.t2, "rgba(52,211,153,.65)", "T2", "2 5");
     }
+  }
+
+  // ---- Fibonacci Retracement Overlay ----
+  let fibSvg = "";
+  if (state.overlays.fib) {
+    const vHi = Math.max(...view.map((k) => k.h));
+    const vLo = Math.min(...view.map((k) => k.l));
+    const fibLevels = [
+      { r: 0.000, label: "0.0% (Swing High)", col: "#f87171" },
+      { r: 0.236, label: "23.6%", col: "#fb923c" },
+      { r: 0.382, label: "38.2%", col: "#fbbf24" },
+      { r: 0.500, label: "50.0% (Equilibrium)", col: "#38bdf8" },
+      { r: 0.618, label: "61.8% (Golden Pocket)", col: "#34d399" },
+      { r: 0.786, label: "78.6%", col: "#a78bfa" },
+      { r: 1.000, label: "100.0% (Swing Low)", col: "#818cf8" },
+    ];
+    fibSvg = fibLevels.map((fib) => {
+      const pVal = vHi - fib.r * (vHi - vLo);
+      const yVal = py(pVal);
+      return `<g class="fib-level">
+        <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${yVal.toFixed(1)}" y2="${yVal.toFixed(1)}" stroke="${fib.col}" stroke-width="1.2" stroke-dasharray="6 3" opacity="0.8"/>
+        <rect x="${PAD.l + 4}" y="${(yVal - 14).toFixed(1)}" width="170" height="13" rx="2" fill="rgba(10,7,18,0.7)"/>
+        <text x="${PAD.l + 8}" y="${(yVal - 4).toFixed(1)}" font-size="9" fill="${fib.col}" font-family="ui-monospace" font-weight="700">Fib ${fib.label}: ${fmt(pVal)}</text>
+      </g>`;
+    }).join("");
+  }
+
+  // ---- Custom User Drawings (Trendlines & S/R Rays) ----
+  let userDrawingsSvg = "";
+  const drawings = state.drawings || [];
+  for (const d of drawings) {
+    if (d.type === "ray") {
+      const yVal = py(d.price);
+      userDrawingsSvg += `
+        <g class="user-draw-ray">
+          <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${yVal.toFixed(1)}" y2="${yVal.toFixed(1)}" stroke="${d.color || "#fbbf24"}" stroke-width="1.8" stroke-dasharray="4 4" opacity="0.9"/>
+          <rect x="${W - PAD.r - 80}" y="${(yVal - 15).toFixed(1)}" width="76" height="14" rx="2" fill="#fbbf24" opacity="0.85"/>
+          <text x="${W - PAD.r - 42}" y="${(yVal - 4).toFixed(1)}" font-size="9" font-weight="800" text-anchor="middle" fill="#1a1205">${esc(d.label || "S/R")}: ${fmt(d.price)}</text>
+        </g>`;
+    } else if (d.type === "trendline") {
+      const x1 = x(d.p1.idx - start), y1 = py(d.p1.price);
+      const x2 = x(d.p2.idx - start), y2 = py(d.p2.price);
+      userDrawingsSvg += `
+        <g class="user-draw-trend">
+          <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${d.color || "#c4b5fd"}" stroke-width="2" opacity="0.95"/>
+          <circle cx="${x1.toFixed(1)}" cy="${y1.toFixed(1)}" r="3" fill="#c4b5fd"/>
+          <circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="3" fill="#c4b5fd"/>
+        </g>`;
+    }
+  }
+
+  // ---- Chart Price Alerts Overlay ----
+  let alertsSvg = "";
+  const symAlerts = (state.alerts || []).filter((a) => a.sym === meta.symbol && a.active);
+  for (const a of symAlerts) {
+    const yVal = py(a.price);
+    alertsSvg += `
+      <g class="chart-alert-line">
+        <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${yVal.toFixed(1)}" y2="${yVal.toFixed(1)}" stroke="#38bdf8" stroke-width="1.6" stroke-dasharray="3 3"/>
+        <rect x="${PAD.l + 6}" y="${(yVal - 14).toFixed(1)}" width="110" height="14" rx="3" fill="#0284c7"/>
+        <text x="${PAD.l + 10}" y="${(yVal - 3.5).toFixed(1)}" font-size="9.5" fill="#fff" font-weight="700">🔔 Alert: ${fmt(a.price)}</text>
+      </g>`;
   }
 
   const earn = (meta.earningsDates || []).map((d) => {
@@ -254,8 +430,8 @@ function render() {
 
   els.svgWrap.innerHTML = `
   <div class="cd-svg-box" style="position:relative">
-    <svg viewBox="0 0 ${W} ${H}" id="cdSvg" preserveAspectRatio="none" style="width:100%;height:auto;display:block">
-      <text x="${PAD.l}" y="${pt + 2}" font-size="10" fill="#6d6486" font-weight="700">PRICE (${meta.symbol || ""})</text>
+    <svg viewBox="0 0 ${W} ${H}" id="cdSvg" preserveAspectRatio="none" style="width:100%;height:auto;display:block;cursor:${state.drawTool !== "pointer" ? "crosshair" : "default"}">
+      <text x="${PAD.l}" y="${pt + 2}" font-size="10" fill="#6d6486" font-weight="700">PRICE (${meta.symbol || ""} · ${state.timeframe})</text>
       <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${pb + 6}" y2="${pb + 6}" stroke="#2a2140"/>
       ${axisLabels}
       <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${lastY}" y2="${lastY}" stroke="${lastC.c >= lastC.o ? UP : DOWN}" stroke-dasharray="2 4" opacity="0.6"/>
@@ -263,14 +439,17 @@ function render() {
       <g class="chart-watermark" pointer-events="none">
         <text x="${PAD.l + 12}" y="${pt + 36}" font-size="30" font-weight="800" letter-spacing="1.5" fill="rgba(139,92,246,.14)">${esc(state.meta.symbol || "")}</text>
         <text x="${PAD.l + 12}" y="${pt + 55}" font-size="12.5" font-weight="600" fill="rgba(157,148,184,.38)">${esc(state.meta.name || "")}</text>
-        <text x="${PAD.l + 12}" y="${pt + 72}" font-size="11" font-family="ui-monospace" fill="rgba(157,148,184,.30)">LIVE ${fmt(lastC.c)} ${state.meta.currency ? esc(state.meta.currency) : ""} · ${dstr(lastC.t)}</text>
+        <text x="${PAD.l + 12}" y="${pt + 72}" font-size="11" font-family="ui-monospace" fill="rgba(157,148,184,.30)">LIVE ${fmt(lastC.c)} ${state.meta.currency ? esc(state.meta.currency) : ""} · ${state.timeframe} · ${dstr(lastC.t)}</text>
       </g>
       ${bbBand}
+      ${fibSvg}
       ${candlesSvg}
       ${state.overlays.sma20 ? line(ind.s20, "#a78bfa", 1.6) : ""}
       ${state.overlays.sma50 ? line(ind.s50, "#fbbf24", 1.6) : ""}
       ${state.overlays.sma200 ? line(ind.s200, "#60a5fa", 1.6) : ""}
       ${markers}${wavesSvg}${earn}
+      ${userDrawingsSvg}
+      ${alertsSvg}
       <text x="${PAD.l}" y="${vt - 2}" font-size="10" fill="#6d6486" font-weight="700">VOLUME</text>
       ${volSvg}
       <line x1="${PAD.l}" x2="${W - PAD.r}" y1="${rb + 8}" y2="${rb + 8}" stroke="#2a2140"/>
@@ -296,23 +475,80 @@ function render() {
   const hit = document.getElementById("cdHit");
   const cross = document.getElementById("cdCross");
   const box = els.svgWrap.querySelector(".cd-svg-box");
+
   hit.addEventListener("mousemove", (e) => {
     const r = svg.getBoundingClientRect();
     const vx = ((e.clientX - r.left) / r.width) * W;
+    const vy_pos = ((e.clientY - r.top) / r.height) * H;
     const j = Math.max(0, Math.min(n - 1, Math.floor((vx - PAD.l) / step)));
     state.hover = j;
     const k = view[j], g = vi(j);
     const chg = j > 0 ? k.c / view[j - 1].c - 1 : 0;
     cross.setAttribute("x1", x(j)); cross.setAttribute("x2", x(j)); cross.setAttribute("opacity", "0.55");
     tip.style.display = "block";
-    tip.innerHTML = `<b>${dstr(k.t)}</b> · O ${fmt(k.o)} H ${fmt(k.h)} L ${fmt(k.l)} C <b class="${k.c >= k.o ? "pos" : "neg"}">${fmt(k.c)}</b> (${(chg * 100).toFixed(2)}%)<br><span class="muted">Vol ${((k.v || 0) / 1e6).toFixed(1)}M · RSI ${ind.r14[g] != null ? ind.r14[g].toFixed(0) : "—"} · MACD ${ind.macd[g].toFixed(2)} · S20 ${ind.s20[g] != null ? ind.s20[g].toFixed(2) : "—"} · S50 ${ind.s50[g] != null ? ind.s50[g].toFixed(2) : "—"}</span>`;
+
+    const hoverPrice = invPy(vy_pos);
+    const drawHint = state.drawTool !== "pointer" ? `<br><span style="color:#fbbf24;font-weight:700">Tool: ${state.drawTool.toUpperCase()} — Click to place at ${fmt(hoverPrice)}</span>` : "";
+
+    tip.innerHTML = `<b>${dstr(k.t)}</b> · O ${fmt(k.o)} H ${fmt(k.h)} L ${fmt(k.l)} C <b class="${k.c >= k.o ? "pos" : "neg"}">${fmt(k.c)}</b> (${(chg * 100).toFixed(2)}%)<br><span class="muted">Vol ${((k.v || 0) / 1e6).toFixed(1)}M · RSI ${ind.r14[g] != null ? ind.r14[g].toFixed(0) : "—"} · MACD ${ind.macd[g].toFixed(2)} · S20 ${ind.s20[g] != null ? ind.s20[g].toFixed(2) : "—"} · S50 ${ind.s50[g] != null ? ind.s50[g].toFixed(2) : "—"}</span>${drawHint}`;
     const boxR = box.getBoundingClientRect();
     tip.style.left = `${Math.min(e.clientX - boxR.left + 14, Math.max(10, boxR.width - 270))}px`;
     tip.style.top = `${Math.max(8, e.clientY - boxR.top - 64)}px`;
   });
+
   hit.addEventListener("mouseleave", () => {
     tip.style.display = "none";
     cross.setAttribute("opacity", "0");
+  });
+
+  // Handle drawing tool clicks on canvas
+  hit.addEventListener("click", (e) => {
+    if (state.drawTool === "pointer") return;
+    const r = svg.getBoundingClientRect();
+    const vx = ((e.clientX - r.left) / r.width) * W;
+    const vy_pos = ((e.clientY - r.top) / r.height) * H;
+    const j = Math.max(0, Math.min(n - 1, Math.floor((vx - PAD.l) / step)));
+    const clickedPrice = invPy(vy_pos);
+    const sym = state.meta.symbol;
+
+    if (state.drawTool === "ray") {
+      soundFx.click();
+      state.drawings.push({ type: "ray", price: +clickedPrice.toFixed(2), label: "S/R" });
+      saveDrawings(sym, state.drawings);
+      render();
+    } else if (state.drawTool === "trendline") {
+      soundFx.click();
+      if (!state.drawState) {
+        state.drawState = { idx: start + j, price: +clickedPrice.toFixed(2) };
+        showInAppNotification("📌 First point set. Click a 2nd point to complete the trendline.");
+      } else {
+        state.drawings.push({
+          type: "trendline",
+          p1: state.drawState,
+          p2: { idx: start + j, price: +clickedPrice.toFixed(2) },
+          color: "#c4b5fd"
+        });
+        state.drawState = null;
+        saveDrawings(sym, state.drawings);
+        render();
+      }
+    } else if (state.drawTool === "alert") {
+      soundFx.click();
+      const lastPrice = view[n - 1].c;
+      const cond = clickedPrice >= lastPrice ? "above" : "below";
+      const newAlert = {
+        id: crypto.randomUUID?.() || String(Date.now()),
+        sym,
+        price: +clickedPrice.toFixed(2),
+        condition: cond,
+        active: true,
+        createdAt: Date.now()
+      };
+      state.alerts.push(newAlert);
+      saveAlerts(state.alerts);
+      showInAppNotification(`🔔 Price alert set for ${sym} at ${fmt(clickedPrice)} (${cond})`);
+      render();
+    }
   });
 
   renderLegend(ind, signals, start);
@@ -342,31 +578,82 @@ export function mountCandleChart(container) {
   els.legend = container.querySelector(".cd-legend");
   const ranges = container.querySelector(".cd-ranges");
   const toggles = container.querySelector(".cd-toggles");
+  const tfButtons = container.querySelector(".cd-timeframes");
+  const drawToolbar = container.querySelector(".cd-draw-toolbar");
 
-  ranges.addEventListener("click", (e) => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    ranges.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
-    state.range = Number(b.dataset.n);
-    render();
-  });
-  toggles.addEventListener("change", () => {
-    state.overlays = {
-      sma20: toggles.querySelector('[data-o="sma20"]').checked,
-      sma50: toggles.querySelector('[data-o="sma50"]').checked,
-      sma200: toggles.querySelector('[data-o="sma200"]').checked,
-      bb: toggles.querySelector('[data-o="bb"]').checked,
-      waves: toggles.querySelector('[data-o="waves"]').checked,
-    };
-    render();
-  });
+  if (ranges) {
+    ranges.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      soundFx.click();
+      ranges.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+      state.range = Number(b.dataset.n);
+      render();
+    });
+  }
+
+  if (tfButtons) {
+    tfButtons.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      soundFx.click();
+      tfButtons.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+      state.timeframe = b.dataset.tf;
+      state.candles = aggregateCandles(state.rawCandles, state.timeframe);
+      state.waves = analyzeWaves(state.candles);
+      render();
+    });
+  }
+
+  if (drawToolbar) {
+    drawToolbar.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      soundFx.click();
+      const tool = b.dataset.tool;
+      if (tool === "clear") {
+        state.drawings = [];
+        state.drawState = null;
+        saveDrawings(state.meta.symbol, []);
+        showInAppNotification("🗑 Drawings cleared.");
+        render();
+        return;
+      }
+      drawToolbar.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+      state.drawTool = tool;
+      state.drawState = null;
+      render();
+    });
+  }
+
+  if (toggles) {
+    toggles.addEventListener("change", () => {
+      soundFx.click();
+      state.overlays = {
+        sma20: toggles.querySelector('[data-o="sma20"]')?.checked ?? true,
+        sma50: toggles.querySelector('[data-o="sma50"]')?.checked ?? true,
+        sma200: toggles.querySelector('[data-o="sma200"]')?.checked ?? true,
+        bb: toggles.querySelector('[data-o="bb"]')?.checked ?? false,
+        waves: toggles.querySelector('[data-o="waves"]')?.checked ?? true,
+        fib: toggles.querySelector('[data-o="fib"]')?.checked ?? false,
+      };
+      render();
+    });
+  }
 
   return {
     update(candles, meta = {}) {
-      state.candles = candles;
+      state.rawCandles = candles || [];
+      state.candles = aggregateCandles(state.rawCandles, state.timeframe);
       state.meta = meta;
       state.hover = -1;
-      state.waves = analyzeWaves(candles);
+      state.drawState = null;
+      state.drawings = loadDrawings(meta.symbol);
+      state.alerts = loadAlerts();
+      state.waves = analyzeWaves(state.candles);
+      if (candles && candles.length) {
+        checkPriceAlerts(meta.symbol, candles[candles.length - 1].c);
+      }
       render();
     },
   };

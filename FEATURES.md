@@ -152,6 +152,25 @@
 | Cloud sync token attachment for bot configuration | `api/portfolio.js` (telegram schema) · `portfolio.js` `cloudToken` |
 | Interactive 2-Way Commands (`/portfolio`, `/price`, `/radar`, `/shreds`, `/help`) | `api/telegram-webhook.js` · `api/telegram.js` (setWebhook/setMyCommands) |
 
+## 11c. Charting & Technical Analysis Enhancements
+
+| Feature | Code |
+|---|---|
+| Multi-timeframe candle switcher (1D / 1W / 1M dynamic aggregation) | `chart.js` `aggregateCandles` · `index.html` `.cd-timeframes` |
+| Interactive Drawing Toolbar (S/R Horizontal Ray, 2-Point Trendline, Cursor) | `chart.js` `cd-draw-toolbar` · `saveDrawings/loadDrawings` |
+| Fibonacci Retracement Overlay (0.0%, 23.6%, 38.2%, 50.0%, 61.8% Golden Pocket, 78.6%, 100%) | `chart.js` `fibSvg` · `index.html` `data-o="fib"` |
+| Interactive Chart Price Alerts (Click canvas price to arm alert + Telegram push) | `chart.js` `checkPriceAlerts/loadAlerts` · `portfolio.js` `notifyTelegram` |
+
+## 11d. Intelligence, Macro Heatmap & Sound/Haptic System
+
+| Feature | Code |
+|---|---|
+| Macro Correlation Matrix & Cross-Asset Heatmap (Equities, Crypto, Yields, Gold, Oil, Forex) | `analysis.js` `viewIntel` · `index.html` `data-a="intel"` |
+| Macro Economic Playbook & Fed / Inflation regime guide | `analysis.js` `viewEvents` (macroHtml table) |
+| Latency-free Web Audio synthesizer (Trade fill, TP chord, SL tone, Radar chirp, Tap) | `audio.js` `soundFx` |
+| Tactile vibration haptics on mobile browsers (`navigator.vibrate`) | `audio.js` `vibrate` |
+| Sound & Haptics toggle control button (persisted in localStorage) | `audio.js` `setSoundEnabled` · `index.html` `#soundToggleBtn` |
+
 ## 12. Storage Registry (never migrate blindly)
 
 | Key | What |
@@ -163,6 +182,9 @@
 | `tbc_section_order` | section order |
 | `tbc_shred_providers` | external RPC list |
 | `tbc_shred_ticks_{CHAIN}` | live candle ticks |
+| `tbc_drawings_{SYMBOL}` | custom chart drawings per instrument |
+| `tbc_price_alerts` | user custom chart price alerts |
+| `tbc_sound_enabled` | sound & haptics enabled/muted setting |
 | Vercel Blob `portfolios/{token}.json` | cloud portfolios + personal telegram bot configs (**survives deploys**) |
 
 ## 13. Release & Recovery Protocol
