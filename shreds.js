@@ -25,7 +25,20 @@ function render() {
   const box = $("shredsPanel");
   if (!box) return;
   if (!data) {
-    box.innerHTML = `<div class="chart-head"><h2>⚡ Crypto Shreds — raw on-chain telemetry</h2><button class="btn small" id="shredsRefresh">↻</button></div><p class="hint">Streaming raw Solana chain data…</p>`;
+    const topProgram = data.programs[0] || { name: "—", count: 0 };
+  const dexShare = data.dexCalls ? Math.round((topProgram.count / data.dexCalls) * 100) : 0;
+  const biggest = data.flows[0];
+  const stableVol = data.volUsd.USDC + data.volUsd.USDT;
+  const chips = [];
+  if (data.failRate > 0.15) chips.push({ cls: "bad", label: `⚠ chain congestion (${(data.failRate * 100).toFixed(0)}% fail)` });
+  if (data.tps > 4000) chips.push({ cls: "warn", label: "🔥 network hot" });
+  if (dexShare >= 50 && topProgram.count > 20) chips.push({ cls: "good", label: `⚡ ${topProgram.name} dominates (${dexShare}%)` });
+  if (biggest && biggest.usd >= 50000) chips.push({ cls: "warn", label: `🐋 whale print ${usd(biggest.usd)}` });
+  if (stableVol >= 100000) chips.push({ cls: "good", label: "💵 stablecoins staging" });
+  if (!chips.length) chips.push({ cls: "neutral", label: "😴 calm window" });
+  const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b> with a <b>${(data.failRate * 100).toFixed(1)}%</b> failure rate${data.failRate > 0.15 ? " — that's congestion/bot spam, expect slower fills and slippage" : " — healthy"}. ${topProgram.name} leads DEX routing with <b>${topProgram.count}</b> of ${data.dexCalls} calls${dexShare >= 50 ? " — heavy aggregator flow often front-runs volatile moves on SOL & meme coins" : ""}. ${biggest ? `The largest print moved <b>${usd(biggest.usd)}</b> in ${biggest.sym}${biggest.usd >= 50000 ? " — whale-sized; watch the receiving wallet's next swap" : ""}. ` : ""}Stablecoin flow is ${stableVol >= 100000 ? `<b>${usd(stableVol)}</b> — big buy/sell orders may be staging` : `quiet (${usd(stableVol)}) — no obvious staged orders`}.`;
+
+  box.innerHTML = `<div class="chart-head"><h2>⚡ Crypto Shreds — raw on-chain telemetry</h2><button class="btn small" id="shredsRefresh">↻</button></div><p class="hint">Streaming raw Solana chain data…</p>`;
     wire();
     return;
   }
@@ -57,18 +70,24 @@ function render() {
     </div>
     <div class="shred-cols">
       <div>
-        <h3>🐋 Top flows (last ${data.blocksScanned} slots · live-priced)</h3>
-        ${data.flows.length ? `<table class="table">
-          <tr><th>Asset</th><th>Amount</th><th>≈ USD</th><th>From → To</th><th>Tx</th></tr>
-          ${data.flows.map((w) => `<tr>
-            <td><span class="chip ${w.sym === "SOL" || w.sym === "wSOL" ? "warn" : "good"}">${w.sym}</span></td>
-            <td><b>${w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 })}</b></td>
-            <td><b>${usd(w.usd)}</b></td>
-            <td class="muted" style="font-size:11px">${short(w.from)} → ${short(w.to)}</td>
-            <td><a href="https://solscan.io/tx/${w.sig}" target="_blank" rel="noopener" style="color:var(--accent-2)">solscan ↗</a></td>
-          </tr>`).join("")}
-        </table>` : `<div class="empty">No flows ≥$3k in the scanned slots.</div>`}
-        <p class="hint">Volumes scanned: wSOL ${usd(data.volUsd.wSOL)} · USDC ${usd(data.volUsd.USDC)} · USDT ${usd(data.volUsd.USDT)} — top-level + inner instructions, priced at live SOL.</p>
+        <div class="shred-insight">
+          <h3>🧠 What the shreds say</h3>
+          <p>${insight}</p>
+          <div class="shred-chips">${chips.map((c) => `<span class="chip ${c.cls}">${c.label}</span>`).join("")}</div>
+        </div>
+        <h3 style="margin-top:14px">🐋 Top on-chain flows <span class="muted" style="font-size:10.5px;font-weight:500">last ${data.blocksScanned} slots · live-priced</span></h3>
+        ${data.flows.length ? `<div class="flow-list">
+          ${data.flows.map((w) => {
+            const tier = w.usd >= 50000 ? "whale" : w.usd >= 10000 ? "big" : "std";
+            return `<a class="flow-row ${tier}" href="https://solscan.io/tx/${w.sig}" target="_blank" rel="noopener">
+              <span class="flow-token ${w.sym === "USDC" ? "usdc" : w.sym === "USDT" ? "usdt" : "sol"}">${w.sym}</span>
+              <span class="flow-amts"><b>${w.amt.toLocaleString("en-US", { maximumFractionDigits: 1 })}</b><i>${usd(w.usd)}</i></span>
+              <span class="flow-addr muted">${short(w.from)} <span class="flow-arrow">→</span> ${short(w.to)}</span>
+              <span class="flow-link">solscan ↗</span>
+            </a>`;
+          }).join("")}
+        </div>` : `<div class="empty">No flows ≥$3k in the scanned slots — quiet window.</div>`}
+        <p class="hint">Scanned volume: wSOL ${usd(data.volUsd.wSOL)} · USDC ${usd(data.volUsd.USDC)} · USDT ${usd(data.volUsd.USDT)} — top-level + inner instructions across ${data.totalTx.toLocaleString()} transactions.</p>
       </div>
       <div>
         <h3>🔀 DEX program flow</h3>
