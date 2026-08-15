@@ -20,6 +20,8 @@ function rsi14(c) {
   return al === 0 ? 100 : 100 - 100 / (1 + ag / al);
 }
 
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
   const now = Math.floor(Date.now() / 1000);
   const p1 = now - 120 * 86400, p2 = now + 86400;

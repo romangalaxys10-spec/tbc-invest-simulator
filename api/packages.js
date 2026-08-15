@@ -143,6 +143,8 @@ function corr(a, b) {
   return va && vb ? cov / Math.sqrt(va * vb) : null;
 }
 
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
   const now = Math.floor(Date.now() / 1000);
   const p1 = now - 200 * 86400, p2 = now + 86400;
