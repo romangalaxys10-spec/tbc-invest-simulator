@@ -26,10 +26,10 @@ async function rpc(method, params = [], pool = null) {
   let lastErr;
   for (const url of urls) {
     const t0 = Date.now();
+    const ep = typeof url === "string" ? { url, key: null } : url;
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 9000);
-      const ep = typeof url === "string" ? { url, key: null } : url;
       const r = await fetch(ep.url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(ep.key ? { Authorization: `Bearer ${ep.key}` } : {}) },
