@@ -53,6 +53,29 @@ body {
   width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 14px;
 }
 .live-pill button:hover { background: var(--accent); color: white; }
+.alert-bell {
+  position: relative; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 12px; padding: 8px 12px; font-size: 16px; cursor: pointer; color: var(--text);
+}
+.alert-bell.has { border-color: rgba(251,191,36,.5); box-shadow: 0 0 14px rgba(251,191,36,.25); }
+.alert-count {
+  position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px;
+  background: #f87171; color: #fff; font-size: 10px; font-weight: 800;
+  border-radius: 999px; display: grid; place-items: center; padding: 0 4px;
+}
+.alert-count:empty { display: none; }
+.intraday-panel { display: flex; flex-direction: column; gap: 12px; }
+.intraday-panel h2 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-2); }
+.alert-list { display: flex; flex-direction: column; gap: 7px; max-height: 380px; overflow-y: auto; }
+.alert-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px;
+  padding: 10px 13px; flex-wrap: wrap;
+}
+.alert-row.bullish { border-left: 3px solid var(--up); }
+.alert-row.bearish { border-left: 3px solid var(--down); }
+.alert-main { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13px; }
+.alert-actions { display: flex; align-items: center; gap: 10px; }
 
 .layout {
   display: grid; grid-template-columns: 330px 1fr; gap: 20px;

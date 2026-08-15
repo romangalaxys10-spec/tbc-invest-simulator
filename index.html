@@ -27,6 +27,7 @@
       <span id="liveText">Connecting…</span>
       <button id="refreshBtn" title="Refresh prices">↻</button>
     </div>
+    <button class="alert-bell" id="alertBell" title="Intraday signals &amp; alerts">🔔<span class="alert-count" id="alertCount"></span></button>
   </header>
 
   <main class="layout">
@@ -35,6 +36,10 @@
         <button data-cat="stock" class="active">Stocks</button>
         <button data-cat="etf">ETFs</button>
         <button data-cat="bond">Bonds</button>
+        <button data-cat="futures">Futures</button>
+        <button data-cat="crypto">Crypto</button>
+        <button data-cat="forex">Forex</button>
+        <button data-cat="index">Indices</button>
       </div>
       <input id="search" type="search" placeholder="Search name or ticker…" autocomplete="off" />
       <div class="instrument-list" id="instrumentList"></div>
@@ -78,6 +83,8 @@
       </div>
 
       <div class="panel result" id="resultCard"></div>
+      <!-- Intraday radar -->
+      <div class="panel intraday-panel" id="intradayPanel"></div>
       <div class="panel chart-panel">
         <div class="chart-head">
           <div class="chart-mode-tabs" id="chartMode">

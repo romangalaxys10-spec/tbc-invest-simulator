@@ -2,6 +2,9 @@
 // (20+ Wall Street analysts) + upcoming events with historical impact reactions.
 
 import { fetchChart, chartToCandles, fetchQuoteSummary } from "../lib/yahoo.js";
+import { CATALOG } from "../instruments.js";
+
+const CATALOG_ASSET = (sym) => CATALOG.find((i) => i.sym === sym)?.cat || "stock";
 
 const MODULES = [
   "summaryDetail", "financialData", "defaultKeyStatistics", "calendarEvents",
@@ -334,7 +337,13 @@ export default async function handler(req, res) {
       fetchQuoteSummary(symbol, MODULES),
     ]);
   } catch (e) {
-    return res.status(502).json({ error: `Analysis data unavailable (${e.message})` });
+    // Futures/crypto/forex have no quoteSummary — retry chart-only
+    try {
+      chart = await fetchChart(symbol, now - 420 * 86400, now + 86400);
+      qs = {};
+    } catch (e2) {
+      return res.status(502).json({ error: `Analysis data unavailable (${e2.message})` });
+    }
   }
 
   const m = chart.meta || {};
@@ -349,7 +358,13 @@ export default async function handler(req, res) {
   const ud = qs.upgradeDowngradeHistory?.history || [];
   const eq = qs.earnings?.earningsChart?.quarterly || [];
   const fund = qs.fundProfile || {};
-  const isFund = m.instrumentType === "ETF" || m.instrumentType === "MUTUALFUND" || !!fund.family;
+  const assetClass = symbol.includes("=") && !symbol.endsWith("=F")
+    ? "forex"
+    : symbol.endsWith("=F") ? "futures" : symbol.includes("-USD") ? "crypto"
+    : symbol.startsWith("^") ? "index"
+    : CATALOG_ASSET(symbol);
+  const isFund = m.instrumentType === "ETF" || m.instrumentType === "MUTUALFUND" || !!fund.family ||
+    assetClass === "futures" || assetClass === "crypto" || assetClass === "forex";
 
   // earnings event + impact
   const earningsTs = ce.earnings?.earningsDate?.[0]?.raw ? ce.earnings.earningsDate[0].raw * 1000 : null;
@@ -372,6 +387,7 @@ export default async function handler(req, res) {
     exchange: m.fullExchangeName || m.exchangeName || "",
     type: m.instrumentType || "",
     isFund,
+    assetClass,
     price,
     technicals: computeTechnicals(candles.map((c) => ({ ...c, c: c.c / scale, h: c.h / scale, l: c.l / scale })), price),
     fundamentals: {
@@ -420,7 +436,10 @@ export default async function handler(req, res) {
       },
       exDiv: !exDivTs ? null : { date: new Date(exDivTs).toISOString().slice(0, 10), daysUntil: Math.ceil((exDivTs - Date.now()) / 86400000), rate: divRate, yield: dividendYield },
     },
-    fund: isFund ? {
+    fund: ["futures", "crypto", "forex", "index"].includes(assetClass) ? {
+      family: null, category: { futures: "Continuous front contract", crypto: "Spot crypto (24/7)", forex: "FX pair (24/5)", index: "Market index" }[assetClass],
+      expenseRatio: null, about: assetClass,
+    } : isFund ? {
       family: fund.family, category: fund.categoryName,
       expenseRatio: r(fund, "feesNetExpenseRatio") ?? r(fund.feesExpensesInvestment, "annualReportExpenseRatio"),
       about: fund.legalType,

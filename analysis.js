@@ -203,6 +203,11 @@ function verdictChip(value, good, warn) {
 }
 function viewFund(d) {
   const f = d.fundamentals;
+  if (["futures", "crypto", "forex", "index"].includes(d.assetClass)) {
+    const label = { futures: "futures contract", crypto: "crypto asset", forex: "forex pair", index: "market index" }[d.assetClass];
+    return `<h3>${d.fund?.category || label}</h3>
+      <p class="lead">Company fundamentals don't apply to a ${label} — there are no earnings, margins or analyst targets. Value here comes from price action: use the <b>Technicals</b> tab (trend score, RSI, MACD, volatility), the <b>Pattern Lab</b> (entry/stop/target plans) and the Elliott count. Signals from all three desks still compute from live price data.</p>`;
+  }
   if (d.isFund) {
     const fu = d.fund || {};
     return `<h3>${fu.category || "Fund"}</h3>

@@ -5,6 +5,7 @@ import { mountCandleChart } from "./chart.js";
 import { loadPackages } from "./packages.js";
 import { store } from "./store.js";
 import { initPatternLab } from "./patterns.js";
+import { initAlerts } from "./alerts.js";
 
 // ---------- state ----------
 const state = {
@@ -466,4 +467,6 @@ navPackages && (navPackages.onclick = () => showView("packages"));
   initPortfolio();
   initTokenBanner();
   initPatternLab();
+  initAlerts();
+  window.addEventListener("show-simulator", () => navSim?.click());
 })();
