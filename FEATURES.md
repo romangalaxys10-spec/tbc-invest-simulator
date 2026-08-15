@@ -112,6 +112,17 @@
 | ⚡ Entry badge (unsupported crypto → SOL) | `shreds.js` `initShreds` badge |
 | Per-instrument visibility (SUPPORTED set) | `shreds.js` |
 
+## 9b. Equity Shreds (stocks / ETFs / indices — 116 symbols)
+
+| Feature | Code |
+|---|---|
+| Insider Form 4 prints (EDGAR, keyless, owner/shares/price parsed) | `api/shreds.js` `edgarInsider/tickerToCik` |
+| Options flow via existing crumb auth (P/C, volumes, max pain) | `lib/yahoo.js` `fetchOptions` · `api/shreds.js` |
+| Unusual contracts (vol ≫ OI, notional, links) | `api/shreds.js` `equityDecoder` |
+| Trade-halts feed (NasdaqTrader RSS, per-symbol) | `api/shreds.js` `haltsFeed` |
+| Equity cards (insider buying, call/put-heavy, halts) + insight | `api/shreds.js` `equityDecoder` |
+| Frontend routing + EQ theme for stock/etf/index cats | `shreds.js` `SUPPORTED/THEME.EQ` |
+
 ## 10. News
 
 | Feature | Code |

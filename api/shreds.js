@@ -3,7 +3,8 @@
 // ETH/AVAX/ARB/OP -> public EVM RPCs (block flow, whales, DEX routers)
 // SOL -> public Solana RPCs (blocks, whales, Jupiter/Raydium flow)
 
-import { fetchChart } from "../lib/yahoo.js";
+import { fetchChart, fetchOptions } from "../lib/yahoo.js";
+import { CATALOG } from "../instruments.js";
 
 const PRICE_SYM = {
   "BTC-USD": "BTC-USD", "BTC=F": "BTC-USD",
@@ -12,13 +13,155 @@ const PRICE_SYM = {
   "SOL-USD": "SOL-USD", "BONK-USD": "SOL-USD", "WIF-USD": "SOL-USD",
 };
 
+
+// ---------------- Equity decoder (EDGAR insiders + options flow + halts) ----------------
+const SEC_UA = "EquityShreds research admin@claw.rommark.dev";
+let cikMap = { ts: 0, map: null };
+async function tickerToCik(sym) {
+  if (Date.now() - cikMap.ts < 24 * 3600e3 && cikMap.map) return cikMap.map[sym];
+  try {
+    const r = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": SEC_UA } });
+    const j = await r.json();
+    const m = {};
+    for (const k of Object.keys(j)) m[j[k].ticker.toUpperCase()] = String(j[k].cik_str).padStart(10, "0");
+    cikMap = { ts: Date.now(), map: m };
+    return m[sym];
+  } catch { return null; }
+}
+
+async function edgarInsider(sym) {
+  const EMPTY = { cik: null, prints: [], recent: { form4: 0, d13: 0, k8: 0 } };
+  try {
+  const cik = await tickerToCik(sym);
+  if (!cik) return { cik: null, prints: [], recent: { form4: 0, d13: 0, k8: 0 } };
+  const r = await fetch(`https://data.sec.gov/submissions/CIK${cik}.json`, { headers: { "User-Agent": SEC_UA } });
+  const j = await r.json();
+  const rec = j.filings.recent;
+  const now = Date.now();
+  const rows = [];
+  let form4 = 0, d13 = 0, k8 = 0;
+  for (let i = 0; i < rec.form.length && rows.length < 60; i++) {
+    const f = rec.form[i];
+    const ts = new Date(rec.filingDate[i]).getTime();
+    if (now - ts > 45 * 864e5) continue;
+    if (f === "4") form4++;
+    else if (f === "SC 13D/A" || f === "SC 13D" || f === "SC 13G/A" || f === "SC 13G") d13++;
+    else if (f === "8-K") k8++;
+    if (f === "4") rows.push({ date: rec.filingDate[i], acc: rec.accessionNumber[i], doc: rec.primaryDocument[i], cik });
+  }
+  // fetch details for the latest 2 Form 4s
+  const prints = [];
+  for (const p of rows.slice(0, 2)) {
+    try {
+      const dir = `https://www.sec.gov/Archives/edgar/data/${p.cik}/${p.acc.replace(/-/g, "")}/`;
+      const doc = await (await fetch(dir + p.doc, { headers: { "User-Agent": SEC_UA } })).text();
+      const owner = (doc.match(/<rptOwnerName>([^<]+)/) || [])[1]?.trim() || "insider";
+      const shares = Number((doc.match(/<transactionShares>[\s\S]*?<value>([\d.]+)/) || [])[1] || 0);
+      const price = Number((doc.match(/<transactionPricePerShare>[\s\S]*?<value>([\d.]+)/) || [])[1] || 0);
+      const code = ((doc.match(/<transactionAcquiredDisposedCode>[\s\S]*?<value>([AD])/) || [])[1] || "?");
+      prints.push({ owner, shares, price, action: code === "A" ? "BUY" : code === "D" ? "SELL" : "?", date: p.date, link: dir + p.doc });
+    } catch {}
+  }
+  return { cik, prints, recent: { form4, d13, k8 }, dates: rows.slice(0, 6).map((x) => x.date) };
+  } catch { return EMPTY; }
+}
+
+async function haltsFeed(sym) {
+  try {
+    const xml = await (await fetch("https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts")).text();
+    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 60).map((m) => m[1]);
+    const parse = (it) => ({
+      sym: (it.match(/<title>([^<]+)/) || [])[1]?.trim(),
+      date: (it.match(/<ndaq:HaltDate>([^<]+)/) || [])[1]?.trim(),
+      time: (it.match(/<ndaq:HaltTime>([^<]+)/) || [])[1]?.trim(),
+      reason: (it.match(/<ndaq:ReasonCode>([^<]+)/) || [])[1]?.trim(),
+    });
+    const all = items.map(parse).filter((x) => x.sym);
+    const mine = all.filter((x) => x.sym.toUpperCase() === sym.toUpperCase()).slice(0, 3);
+    return { mine, latest: all.slice(0, 5) };
+  } catch { return { mine: [], latest: [] }; }
+}
+
+async function equityDecoder(symbol) {
+  const cat = CATALOG.find((i) => i.sym === symbol)?.cat;
+  const isIndex = cat === "index";
+  const [price, insider, halts] = await Promise.all([
+    priceOf(symbol),
+    isIndex ? Promise.resolve({ prints: [], recent: { form4: 0, d13: 0, k8: 0 } }) : edgarInsider(symbol),
+    haltsFeed(symbol),
+  ]);
+  // options flow
+  let opt = null;
+  try {
+    const oc = await fetchOptions(symbol);
+    const expDate = new Date(oc.options[0].expirationDate * 1000).toISOString().slice(0, 10);
+    const calls = oc.options[0].calls || [], puts = oc.options[0].puts || [];
+    const cv = calls.reduce((s, c) => s + (c.volume || 0), 0);
+    const pv = puts.reduce((s, p) => s + (p.volume || 0), 0);
+    const pc = cv ? +(pv / cv).toFixed(2) : null;
+    // max pain
+    let best = null;
+    for (const k of [...new Set([...calls.map((c) => c.strike), ...puts.map((p) => p.strike)])]) {
+      const payout = calls.reduce((s, c) => s + Math.max(0, (k - c.strike)) * (c.openInterest || 0) * 100, 0) +
+                     puts.reduce((s, p) => s + Math.max(0, (p.strike - k)) * (p.openInterest || 0) * 100, 0);
+      if (!best || payout < best.payout) best = { strike: k, payout };
+    }
+    const all = [...calls.map((c) => ({ ...c, kind: "CALL" })), ...puts.map((p) => ({ ...p, kind: "PUT" }))];
+    const unusual = all.filter((x) => (x.volume || 0) > 200 && (x.openInterest || 0) > 0 && (x.volume / x.openInterest) > 2)
+      .sort((a, b) => b.volume * b.strike - a.volume * a.strike).slice(0, 4)
+      .map((x) => ({ sym: `${x.kind} ${x.strike}`, amt: x.volume, usd: (x.lastPrice || x.strike * 0.05) * 100 * x.volume, from: `OI ${x.openInterest}`, to: `${(x.volume / x.openInterest).toFixed(1)}× OI`, link: `https://finance.yahoo.com/quote/${symbol}/options` }));
+    opt = { expDate, cv, pv, pc, maxPain: best?.strike ?? null, unusual };
+  } catch {}
+  const usdF = (v) => "$" + Math.round(v).toLocaleString("en-US");
+  const insiderFlows = insider.prints.filter((p) => p.shares > 0).map((p) => ({
+    sym: p.action === "BUY" ? "BUY" : "SELL", amt: p.shares, usd: p.shares * (p.price || price || 0),
+    from: p.owner, to: `@ ${p.price || "—"}`, link: p.link,
+  }));
+  const gaugeVal = opt?.pc == null ? 50 : Math.max(3, Math.min(97, Math.round(100 - Math.min(100, opt.pc * 60))));
+  const gaugeLabel = opt?.pc == null ? "n/a" : opt.pc < 0.7 ? "Call-heavy" : opt.pc > 1.3 ? "Put-heavy" : "Balanced options";
+  const cards = [];
+  if (insider.prints.some((p) => p.action === "BUY" && p.shares * (p.price || 1) > 100000))
+    cards.push({ icon: "🐋", cls: "buy", title: "Insider buying detected", text: `A Form 4 shows an insider buying — the people who know the company best are putting money in. Classic accumulation tell.`, trade: symbol, side: "buy" });
+  if (opt?.pc != null && opt.pc < 0.7) cards.push({ icon: "🟢", cls: "buy", title: "Options lean bullish", text: `Put/call ratio ${opt.pc} — traders are loading calls. Follow with small size, not blind.`, trade: symbol, side: "buy" });
+  if (opt?.pc != null && opt.pc > 1.3) cards.push({ icon: "⚠️", cls: "warn", title: "Options lean defensive", text: `Put/call ${opt.pc} — heavy put activity = hedging or bearish bets. Avoid fresh longs, or buy protection.`, trade: symbol, side: "sell" });
+  if (opt?.unusual?.length) cards.push({ icon: "⚡", cls: "mid", title: "Unusual options activity", text: `${opt.unusual[0].sym} traded ${opt.unusual[0].amt.toLocaleString()}× vs OI ${opt.unusual[0].from} — someone is positioning fast. Follow the link to inspect.` });
+  if (halts.mine.length) cards.push({ icon: "🛑", cls: "warn", title: "Recently halted", text: `${symbol} was halted (${halts.mine[0].reason}) — expect violent moves both ways.` });
+  const stats = [
+    ...(opt ? [{ label: "put/call", value: String(opt.pc), warn: opt.pc > 1.5 }, { label: "call vol", value: opt.cv.toLocaleString() }, { label: "put vol", value: opt.pv.toLocaleString() }] : [{ label: "options", value: "n/a" }]),
+    ...(opt?.maxPain ? [{ label: `max pain ${opt.expDate}`, value: String(opt.maxPain) }] : []),
+    { label: "insider 45d", value: String(insider.recent.form4) },
+    { label: "halts 7d", value: String(halts.mine.length) },
+    { label: "price", value: price != null ? usdF(price) : "—" },
+  ];
+  const activity = (opt?.unusual || []).map((u) => ({ name: u.sym, count: u.amt }));
+  const insight = {
+    text: `${opt?.pc != null ? `Options positioning leans <b>${opt.pc < 0.7 ? "bullish" : opt.pc > 1.3 ? "defensive" : "neutral"}</b> — put/call <b>${opt.pc}</b> on ${opt.cv.toLocaleString()} calls vs ${opt.pv.toLocaleString()} puts${opt.maxPain ? `, max pain pins <b>${opt.maxPain}</b> for ${opt.expDate}` : ""}.` : "No options chain available for this symbol."} ${insider.recent.form4 ? `Insiders filed <b>${insider.recent.form4} Form 4s</b> in 45 days${insider.prints[0] ? ` — latest: <b>${insider.prints[0].owner}</b> ${insider.prints[0].action === "A" || insider.prints[0].action === "BUY" ? "bought" : "sold"} ${insider.prints[0].shares.toLocaleString()} shares${insider.prints[0].price ? ` @ $${insider.prints[0].price}` : ""}` : ""}.` : "No recent insider filings."}${halts.mine.length ? ` The stock was <b>halted ${halts.mine[0].date}</b> (${halts.mine[0].reason}).` : ""}`,
+    chips: [
+      ...(opt?.pc != null && opt.pc < 0.7 ? [{ cls: "good", label: `🟢 call-heavy ${opt.pc}` }] : opt?.pc > 1.3 ? [{ cls: "bad", label: `⚠ put-heavy ${opt.pc}` }] : []),
+      ...(insider.prints.some((p) => p.action === "BUY") ? [{ cls: "good", label: "🐋 insider buying" }] : []),
+      ...(opt?.unusual?.length ? [{ cls: "warn", label: "⚡ unusual options" }] : []),
+      ...(halts.mine.length ? [{ cls: "bad", label: "🛑 halted recently" }] : []),
+    ],
+  };
+  return {
+    chain: "EQ", symbol, price, chainName: isIndex ? "Index" : "Equity",
+    stats, gauge: { value: gaugeVal, label: gaugeLabel, low: "put flow", high: "call flow", kind: "bias" },
+    flows: [...insiderFlows, ...(opt?.unusual || [])].slice(0, 8),
+    activity: activity.length ? activity : [{ name: "no unusual contracts", count: 0 }],
+    activityLabel: "unusual options (vol vs OI)",
+    insight, cards, fetchedAt: Date.now(),
+  };
+}
+
 const usdF = (v) => "$" + Math.round(v).toLocaleString("en-US");
 
 async function priceOf(sym) {
   try {
     const p = PRICE_SYM[sym] || sym;
     const ch = await fetchChart(p, Math.floor(Date.now() / 1000) - 5 * 86400, Math.floor(Date.now() / 1000) + 86400);
-    return ch?.meta?.regularMarketPrice ?? null;
+    const px = ch?.meta?.regularMarketPrice;
+    if (px == null) return null;
+    return ch.meta.currency === "GBp" || ch.meta.currency === "ZAc" ? px / 100 : px;
   } catch { return null; }
 }
 
@@ -204,6 +347,8 @@ export default async function handler(req, res) {
   try {
     if (symbol === "BTC-USD" || symbol === "BTC=F") return res.status(200).json(await btcDecoder(symbol));
     if (EVM[symbol]) return res.status(200).json(await evmDecoder(symbol));
+    const cat = CATALOG.find((i) => i.sym === symbol)?.cat;
+    if (cat === "stock" || cat === "etf" || cat === "index") return res.status(200).json(await equityDecoder(symbol));
     // default: Solana engine, normalized into the universal shape
     const sol = (await import("./shreds-sol.js")).default;
     if (req.query.probe === "1") return sol(req, res); // probe pass-through, no normalization

@@ -2,6 +2,7 @@
 // The panel appears only for instruments whose chain has a free feed.
 
 import { store } from "./store.js";
+import { CATALOG } from "./instruments.js";
 
 const $ = (id) => document.getElementById(id);
 let data = null, timer = null, currentSym = null;
@@ -74,11 +75,13 @@ function liveFlowHtml(d) {
   </div>`;
 }
 
-const SUPPORTED = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
+const SHRED_CRYPTO = new Set(["BTC-USD", "BTC=F", "ETH-USD", "ETH=F", "AVAX-USD", "ARB-USD", "OP-USD", "SOL-USD", "BONK-USD", "WIF-USD"]);
+const SUPPORTED = new Set([...SHRED_CRYPTO, ...CATALOG.filter((i) => ["stock", "etf", "index"].includes(i.cat)).map((i) => i.sym)]);
 const THEME = {
   BTC: { color: "#f7931a", name: "Bitcoin" },
   EVM: { color: "#627eea", name: "EVM" },
   SOL: { color: "#14f195", name: "Solana" },
+  EQ: { color: "#4da3ff", name: "Equity" },
 };
 
 const short = (a) => (a && a.length > 10 ? a.slice(0, 4) + "…" + a.slice(-4) : a || "—");
