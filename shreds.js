@@ -150,6 +150,12 @@ function render() {
       </div>
     </div>
 
+    ${data.insight ? `<div class="shred-insight">
+      <h3>🧠 What the shreds say</h3>
+      <p>${data.insight.text}</p>
+      ${data.insight.chips?.length ? `<div class="shred-chips">${data.insight.chips.map((c) => `<span class="chip ${c.cls}">${c.label}</span>`).join("")}</div>` : ""}
+    </div>` : ""}
+
     ${data.cards?.length ? `<div class="noob-cards">
       <h3>🧭 Beginner mode — what this means for you</h3>
       <div class="nc-grid">

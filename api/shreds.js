@@ -12,6 +12,8 @@ const PRICE_SYM = {
   "SOL-USD": "SOL-USD", "BONK-USD": "SOL-USD", "WIF-USD": "SOL-USD",
 };
 
+const usdF = (v) => "$" + Math.round(v).toLocaleString("en-US");
+
 async function priceOf(sym) {
   try {
     const p = PRICE_SYM[sym] || sym;
@@ -75,6 +77,14 @@ async function btcDecoder(symbol) {
     ],
     activityLabel: "fee market (sat/vB)",
     cards: btcCards(fees, mvb, whales[0]),
+    insight: {
+      text: `The Bitcoin mempool holds <b>${mem.count.toLocaleString()} pending transactions</b> (${mvb.toFixed(1)} MvB — at ~1 MvB per block that's ~${Math.round(mvb)} blocks ≈ ${(mvb * 10 / 60).toFixed(1)} hours to clear). Fastest fee is <b>${fees.fastestFee} sat/vB</b> ${fees.fastestFee <= 5 ? "— fees are dirt cheap, blocks are keeping up with demand" : fees.fastestFee > 30 ? "— competition is fierce, expect slow confirmations unless you overpay" : "— a normal, balanced fee market"}. The latest block <b>#${block.height.toLocaleString()}</b> packed <b>${block.tx_count.toLocaleString()} transactions</b>.${whales[0] ? ` The biggest print moved <b>${usdF(whales[0].usd)}</b> in BTC${whales[0].usd >= 500000 ? " — whale-sized; watch what the receiving address does next" : ""}.` : ""}`,
+      chips: [
+        ...(fees.fastestFee <= 5 ? [{ cls: "good", label: "🟢 cheap fees" }] : fees.fastestFee > 30 ? [{ cls: "bad", label: `⚠ fee spike ${fees.fastestFee} sat/vB` }] : []),
+        ...(mvb > 40 ? [{ cls: "bad", label: `⚠ mempool backlog ${mvb.toFixed(0)} MvB` }] : mvb > 15 ? [{ cls: "warn", label: ` busy mempool` }] : [{ cls: "good", label: "😌 mempool calm" }]),
+        ...(whales[0]?.usd >= 500000 ? [{ cls: "warn", label: `🐋 whale ${usdF(whales[0].usd)}` }] : []),
+      ],
+    },
     fetchedAt: Date.now(),
   };
 }
@@ -163,6 +173,15 @@ async function evmDecoder(symbol) {
     flows: whales.slice(0, 8),
     activity: activity.length ? activity : [{ name: "no router calls in block", count: 0 }],
     activityLabel: "DEX routers in block",
+    insight: {
+      text: `The latest ${cfg.name} block packed <b>${totalTx.toLocaleString()} transactions</b> at <b>${baseFee != null ? baseFee.toFixed(1) + " gwei" : "n/a"}</b> base fee ${baseFee != null && baseFee < 5 ? "— gas is nearly free, a great window for swaps and transfers" : baseFee > 40 ? "— gas is expensive, actions cost real dollars" : "— a normal gas market"}. The block used <b>${gasUsedPct}%</b> of its gas limit with <b>${valueMoved.toLocaleString("en-US", { maximumFractionDigits: 0 })} ${cfg.native}</b> of native value moved. ${routerTotal > 0 ? `DEX routers handled <b>${routerTotal}</b> calls${activity[0] ? ` (led by ${activity[0].name})` : ""} — ${routerTotal > totalTx * 0.05 ? "heavy DEX flow often front-runs volatile moves" : "routine routing activity"}.` : "No major DEX router activity in this block."}${whales[0] ? ` The largest native transfer moved <b>${usdF(whales[0].usd)}</b>.` : ""}`,
+      chips: [
+        ...(baseFee != null && baseFee < 5 ? [{ cls: "good", label: "🟢 cheap gas" }] : baseFee > 40 ? [{ cls: "bad", label: `⚠ gas ${baseFee?.toFixed(0)} gwei` }] : [{ cls: "neutral", label: "normal gas" }]),
+        ...(routerTotal > totalTx * 0.05 ? [{ cls: "good", label: `⚡ DEX busy (${routerTotal})` }] : []),
+        ...(whales[0]?.usd >= 300000 ? [{ cls: "warn", label: `🐋 whale ${usdF(whales[0].usd)}` }] : []),
+        ...(gasUsedPct > 85 ? [{ cls: "warn", label: "⚠ block near limit" }] : []),
+      ],
+    },
     cards,
     fetchedAt: Date.now(),
   };
@@ -206,6 +225,16 @@ export default async function handler(req, res) {
       },
       flows: cap.flows.map((f) => ({ ...f, link: `https://solscan.io/tx/${f.sig}` })),
       activity: cap.programs, activityLabel: "DEX programs (multi-slot)",
+      insight: {
+        text: `Solana is running at <b>${cap.tps.toLocaleString()} TPS</b> with a <b>${(cap.failRate * 100).toFixed(1)}%</b> failure rate${cap.failRate > 0.15 ? " — that's congestion/bot spam, expect slower fills and slippage" : " — healthy"}. ${cap.programs[0]?.name || "No router"} leads DEX routing with <b>${cap.programs[0]?.count ?? 0}</b> of ${cap.dexCalls} calls${cap.programs[0] && cap.dexCalls && cap.programs[0].count / cap.dexCalls >= 0.5 ? " — heavy aggregator flow often front-runs volatile moves on SOL & memes" : ""}.${cap.flows[0] ? ` The largest print moved <b>${usd(cap.flows[0].usd)}</b> in ${cap.flows[0].sym}${cap.flows[0].usd >= 50000 ? " — whale-sized; watch the receiving wallet's next swap" : ""}.` : ""} Stablecoin flow is ${stableVol >= 100000 ? `<b>${usd(stableVol)}</b> — big buy/sell orders may be staging` : `quiet (${usd(stableVol)}) — no obvious staged orders`}.`,
+        chips: [
+          ...(cap.failRate > 0.15 ? [{ cls: "bad", label: `⚠ congestion (${(cap.failRate * 100).toFixed(0)}% fail)` }] : []),
+          ...(cap.tps > 4000 ? [{ cls: "warn", label: "🔥 network hot" }] : []),
+          ...(cap.programs[0] && cap.dexCalls && cap.programs[0].count / cap.dexCalls >= 0.5 && cap.programs[0].count > 20 ? [{ cls: "good", label: `⚡ ${cap.programs[0].name} dominates` }] : []),
+          ...(cap.flows[0]?.usd >= 50000 ? [{ cls: "warn", label: `🐋 whale ${usd(cap.flows[0].usd)}` }] : []),
+          ...(stableVol >= 100000 ? [{ cls: "good", label: "💵 stables staging" }] : []),
+        ],
+      },
       cards, providers: cap.providers || [], fetchedAt: cap.fetchedAt,
     });
   } catch (e) {
