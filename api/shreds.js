@@ -91,9 +91,10 @@ async function equityDecoder(symbol) {
     haltsFeed(symbol),
   ]);
   // options flow
-  let opt = null;
+  let opt = null, ocCalls = [], ocPuts = [];
+  const OPT_PROXY = { "^GSPC": "^SPX", "^IXIC": "^NDX", "^DJI": "^DJX", "^RUT": "^RUT", "^VIX": "^VIX" };
   try {
-    const oc = await fetchOptions(symbol);
+    const oc = await fetchOptions(OPT_PROXY[symbol] || symbol);
     const expDate = new Date(oc.options[0].expirationDate * 1000).toISOString().slice(0, 10);
     const calls = oc.options[0].calls || [], puts = oc.options[0].puts || [];
     const cv = calls.reduce((s, c) => s + (c.volume || 0), 0);
@@ -107,6 +108,7 @@ async function equityDecoder(symbol) {
       if (!best || payout < best.payout) best = { strike: k, payout };
     }
     const all = [...calls.map((c) => ({ ...c, kind: "CALL" })), ...puts.map((p) => ({ ...p, kind: "PUT" }))];
+    ocCalls = calls; ocPuts = puts;
     const unusual = all.filter((x) => (x.volume || 0) > 200 && (x.openInterest || 0) > 0 && (x.volume / x.openInterest) > 2)
       .sort((a, b) => b.volume * b.strike - a.volume * a.strike).slice(0, 4)
       .map((x) => ({ sym: `${x.kind} ${x.strike}`, amt: x.volume, usd: (x.lastPrice || x.strike * 0.05) * 100 * x.volume, from: `OI ${x.openInterest}`, to: `${(x.volume / x.openInterest).toFixed(1)}× OI`, link: `https://finance.yahoo.com/quote/${symbol}/options` }));
@@ -134,7 +136,39 @@ async function equityDecoder(symbol) {
     { label: "price", value: price != null ? usdF(price) : "—" },
   ];
   const activity = (opt?.unusual || []).map((u) => ({ name: u.sym, count: u.amt }));
-  const insight = {
+  // ---- price-action shreds (always available) ----
+  let pa = null;
+  try {
+    const ch = await fetchChart(symbol, Math.floor(Date.now() / 1000) - 45 * 86400, Math.floor(Date.now() / 1000) + 86400);
+    const ks = chToCandlesLite(ch);
+    if (ks.length > 21) {
+      const scale = ch.meta?.currency === "GBp" ? 100 : 1;
+      const last = ks[ks.length - 1], prev = ks[ks.length - 2];
+      const avgVol = ks.slice(-31, -1).reduce((sm, k) => sm + (k.v || 0), 0) / 30 || 1;
+      const relVol = (last.v || 0) / avgVol;
+      const gap = prev.c ? last.o / prev.c - 1 : 0;
+      const dayPos = last.h > last.l ? (last.c - last.l) / (last.h - last.l) : 0.5;
+      const up = ks.slice(-20).filter((k) => k.c > k.o).length;
+      const moves = [];
+      for (let i = ks.length - 1; i >= 1 && moves.length < 4; i--) {
+        const m = ks[i].c / ks[i - 1].c - 1;
+        if (Math.abs(m) >= 0.015) moves.push({ date: new Date(ks[i].t).toISOString().slice(0, 10), m });
+      }
+      pa = { relVol: +relVol.toFixed(2), gap: +gap.toFixed(4), dayPos: +dayPos.toFixed(2), up, moves, last: last.c / scale, range: [last.l / scale, last.h / scale] };
+    }
+  } catch {}
+  function chToCandlesLite(ch) {
+    const ts = ch.timestamp || [], q = ch.indicators?.quote?.[0] || {};
+    const out = [];
+    for (let i = 0; i < ts.length; i++) { if (q.close?.[i] != null) out.push({ t: ts[i] * 1000, o: q.open?.[i] ?? q.close[i], h: q.high?.[i] ?? q.close[i], l: q.low?.[i] ?? q.close[i], c: q.close[i], v: q.volume?.[i] || 0 }); }
+    return out;
+  }
+
+  const sparse = !opt && !insider.recent.form4 && !halts.mine.length && !pa;
+const insight = sparse ? {
+    text: `No US options chain, no SEC insider filings and no recent halts for <b>${symbol}</b> — this listing's raw-feed telemetry is limited. For this instrument the sharpest free signals are price-based: check the <b>Pattern Lab</b> (entry/stop/target plans) and the <b>Technicals</b> tab (trend score, RSI, MACD).`,
+    chips: [{ cls: "neutral", label: "🗂 price-action mode" }],
+  } : {
     text: `${opt?.pc != null ? `Options positioning leans <b>${opt.pc < 0.7 ? "bullish" : opt.pc > 1.3 ? "defensive" : "neutral"}</b> — put/call <b>${opt.pc}</b> on ${opt.cv.toLocaleString()} calls vs ${opt.pv.toLocaleString()} puts${opt.maxPain ? `, max pain pins <b>${opt.maxPain}</b> for ${opt.expDate}` : ""}.` : "No options chain available for this symbol."} ${insider.recent.form4 ? `Insiders filed <b>${insider.recent.form4} Form 4s</b> in 45 days${insider.prints[0] ? ` — latest: <b>${insider.prints[0].owner}</b> ${insider.prints[0].action === "A" || insider.prints[0].action === "BUY" ? "bought" : "sold"} ${insider.prints[0].shares.toLocaleString()} shares${insider.prints[0].price ? ` @ $${insider.prints[0].price}` : ""}` : ""}.` : "No recent insider filings."}${halts.mine.length ? ` The stock was <b>halted ${halts.mine[0].date}</b> (${halts.mine[0].reason}).` : ""}`,
     chips: [
       ...(opt?.pc != null && opt.pc < 0.7 ? [{ cls: "good", label: `🟢 call-heavy ${opt.pc}` }] : opt?.pc > 1.3 ? [{ cls: "bad", label: `⚠ put-heavy ${opt.pc}` }] : []),
@@ -143,12 +177,48 @@ async function equityDecoder(symbol) {
       ...(halts.mine.length ? [{ cls: "bad", label: "🛑 halted recently" }] : []),
     ],
   };
+  if (!opt && pa) {
+    Object.assign(insight, {
+      text: `No US options chain for <b>${symbol}</b>, so the shreds here are pure price action: <b>${pa.up}/20</b> up days (${pa.up >= 12 ? "uptrend pressure" : pa.up <= 8 ? "downtrend pressure" : "two-way"}), volume running at <b>${pa.relVol}×</b> the 30-day average${pa.relVol >= 1.5 ? " — unusual activity, something is going on" : ""}, today gapped <b>${(pa.gap * 100).toFixed(1)}%</b> and sits at <b>${Math.round(pa.dayPos * 100)}%</b> of its day range.${pa.moves.length ? ` Biggest recent print: <b>${pa.moves[0].date}</b> ${(pa.moves[0].m * 100).toFixed(1)}%.` : ""}${insider.recent.form4 ? "" : ""}`,
+      chips: [
+        ...(pa.up >= 12 ? [{ cls: "good", label: `📈 ${pa.up}/20 up days` }] : pa.up <= 8 ? [{ cls: "bad", label: `📉 ${20 - pa.up}/20 down days` }] : []),
+        ...(pa.relVol >= 1.5 ? [{ cls: "warn", label: `⚡ ${pa.relVol}× volume` }] : []),
+        ...(Math.abs(pa.gap) >= 0.02 ? [{ cls: pa.gap > 0 ? "good" : "bad", label: `${pa.gap > 0 ? "gap up" : "gap down"} ${(pa.gap * 100).toFixed(1)}%` }] : []),
+      ],
+    });
+    if (pa.relVol >= 2) cards.push({ icon: "⚡", cls: "warn", title: "Unusual volume spike", text: `Volume is ${pa.relVol}× the monthly average — institutions may be moving. Check the news tab before reacting.`, trade: symbol, side: null });
+    if (pa.up >= 14) cards.push({ icon: "🟢", cls: "buy", title: "Persistent uptrend", text: `${pa.up} of the last 20 days closed green — momentum is real. Trend-followers buy dips in such regimes, not spikes.`, trade: symbol, side: "buy" });
+    if (pa.up <= 6) cards.push({ icon: "🔴", cls: "sell", title: "Persistent downtrend", text: `${20 - pa.up} of the last 20 days closed red — sellers control. Don't catch the knife; wait for a base.`, trade: symbol, side: "sell" });
+    if (!cards.some((c) => c.cls !== "mid")) cards.push({ icon: "📊", cls: "mid", title: `20-day rhythm: ${pa.up} up days`, text: `Volume runs ${pa.relVol}× average and price sits at ${Math.round(pa.dayPos * 100)}% of today's range. No extreme signal — treat this as context, lean on the Pattern Lab for entries.`, trade: symbol, side: null });
+  }
+  // always-on flows: top strikes by volume when insider/unusual prints are absent
+  const topStrikes = opt ? [...ocCalls, ...ocPuts]
+    .sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 5)
+    .map((x) => ({ sym: `${x.kind} ${x.strike}`, amt: x.volume || 0, usd: (x.lastPrice || x.strike * 0.05) * 100 * (x.volume || 0), from: `OI ${x.openInterest || 0}`, to: `vol`, link: `https://finance.yahoo.com/quote/${symbol}/options` })) : [];
+  const paFlows = pa ? pa.moves.map((m) => ({ sym: m.m > 0 ? "▲ MOVE" : "▼ MOVE", amt: `${(m.m * 100).toFixed(1)}%`, usd: Math.abs(m.m) * (price || 100) * 100, from: m.date, to: m.m > 0 ? "rally" : "selloff", link: `#sym=${symbol}` })) : [];
+  const flows = [...insiderFlows, ...(opt?.unusual || []), ...topStrikes, ...paFlows].slice(0, 8);
+  const strikeActivity = opt ? [...ocCalls, ...ocPuts]
+    .sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 6)
+    .map((x) => ({ name: `${x.kind} ${x.strike}`, count: x.volume || 0 })) : [];
+  const totalVol = (opt?.cv || 0) + (opt?.pv || 0);
   return {
     chain: "EQ", symbol, price, chainName: isIndex ? "Index" : "Equity",
     stats, gauge: { value: gaugeVal, label: gaugeLabel, low: "put flow", high: "call flow", kind: "bias" },
-    flows: [...insiderFlows, ...(opt?.unusual || [])].slice(0, 8),
-    activity: activity.length ? activity : [{ name: "no unusual contracts", count: 0 }],
-    activityLabel: "unusual options (vol vs OI)",
+    tick: opt ? { a: opt.cv, aLabel: "call flow", b: opt.pv, bLabel: "put flow", gauge: gaugeVal }
+      : pa ? { a: pa.up, aLabel: "up days (20d)", b: 20 - pa.up, bLabel: "down days (20d)", gauge: pa.up * 5 }
+      : { a: 1, aLabel: "price only", b: 1, bLabel: "no chain data", gauge: 50 },
+    flowMap: opt ? {
+      left: { label: "CALLS", value: opt.cv.toLocaleString(), weight: Math.min(1, opt.cv / Math.max(1, totalVol)) },
+      hub: { label: "OPTIONS", value: `${totalVol.toLocaleString()} vol` },
+      right: { label: "PUTS", value: opt.pv.toLocaleString(), weight: Math.min(1, opt.pv / Math.max(1, totalVol)) },
+    } : pa ? {
+      left: { label: "UP DAYS", value: `${pa.up}/20`, weight: pa.up / 20 },
+      hub: { label: "PRICE ACTION", value: pa.relVol > 1.5 ? `${pa.relVol}× volume` : "normal volume" },
+      right: { label: "DOWN DAYS", value: `${20 - pa.up}/20`, weight: (20 - pa.up) / 20 },
+    } : null,
+    flows,
+    activity: strikeActivity.length ? strikeActivity : [{ name: "no options chain", count: 0 }],
+    activityLabel: "busiest strikes (volume)",
     insight, cards, fetchedAt: Date.now(),
   };
 }

@@ -91,17 +91,7 @@ function renderSignals(d) {
         ${g.target != null ? `<span class="muted" style="font-size:10.5px">desk target ${money(g.target, d.currency)}</span>` : ""}
       </div>
     </div>`).join("");
-  requestAnimationFrame(() => {
-    document.querySelectorAll(".exec-btn").forEach((b) => {
-      b.onclick = () =>
-        openTradeModal(b.dataset.sym, {
-          side: b.dataset.side,
-          orderType: "market",
-          leverage: Number(b.dataset.lev),
-          source: b.dataset.src,
-        });
-    });
-  });
+
 }
 
 // ---------- analysts ----------
@@ -310,6 +300,16 @@ function exDivCard(xd, ccy) {
 }
 
 export function initAnalysis() {
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".exec-btn");
+    if (!b) return;
+    openTradeModal(b.dataset.sym, {
+      side: b.dataset.side,
+      orderType: "market",
+      leverage: Number(b.dataset.lev),
+      source: b.dataset.src,
+    });
+  });
   $("analysisTabs").addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;

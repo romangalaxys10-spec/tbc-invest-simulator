@@ -139,6 +139,8 @@
 | Views: Simulator / Packages / Portfolio | `app.js` `showView` |
 | Dark-native forms | `styles.css` global input rules |
 | Footer badges (GLM 5.3 invite, Telegram) | `index.html` `.app-footer` |
+| Execute buttons: event delegation (never rAF/direct onclick) | `analysis.js` `.exec-btn` delegation · `patterns.js`/`alerts.js`/`shreds.js` |
+| JS cache-busting (must-revalidate headers) | `vercel.json` headers |
 
 ## 12. Storage Registry (never migrate blindly)
 
