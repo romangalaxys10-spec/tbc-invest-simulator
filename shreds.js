@@ -198,7 +198,7 @@ const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b>
         <p class="hint">Signal logic: Jupiter/Pump spikes vs slot average often precede volatile SOL/BONK/WIF moves; high fail-rate = congested chain or bot spam; whale stablecoin prints hint at staged orders.</p>
       </div>
     </div>
-    <p class="hint">Data: free public Solana RPC (8 confirmed blocks, top+inner instructions, live-priced via Yahoo). True sub-second shred streaming = Jito ShredStream gRPC (paid) — this is the free raw-RPC approximation. Educational research, not advice.</p>`;
+    <p class="hint">Data: free public Solana RPC (8 confirmed blocks, top+inner instructions, live-priced via Yahoo). True sub-second shred streaming = Jito ShredStream gRPC (paid) — this is the free raw-RPC approximation. Shown only for Solana-ecosystem instruments (SOL, BONK, WIF). Educational research, not advice.</p>`;
   wire();
 }
 
@@ -273,7 +273,8 @@ export function initShreds() {
   const box = $("shredsPanel");
   if (!box) return;
   const update = () => {
-    const isCrypto = store.cat === "crypto" || CATALOG.find((i) => i.sym === store.symbol)?.cat === "crypto";
+    const SOL_ECO = new Set(["SOL-USD", "BONK-USD", "WIF-USD"]); // Solana-ecosystem instruments
+    const isCrypto = SOL_ECO.has(store.symbol);
     box.style.display = isCrypto ? "block" : "none";
     if (isCrypto) {
       loadShreds();
