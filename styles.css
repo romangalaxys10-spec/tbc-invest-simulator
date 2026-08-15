@@ -171,6 +171,12 @@ body {
   width: 27px; height: 27px; border-radius: 8px; cursor: pointer; font-size: 12px;
   display: inline-grid; place-items: center; transition: .15s; line-height: 1;
 }
+.open-sim-btn {
+  display: none; width: auto; height: 27px; padding: 0 10px; font-size: 11px; font-weight: 600;
+  color: var(--accent-2); background: var(--panel-2); border-radius: 8px;
+}
+.panel.collapsed .open-sim-btn { display: inline-flex; align-items: center; gap: 4px; }
+.open-sim-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .sc-btn:hover { border-color: var(--accent); color: var(--accent-2); }
 .drag-handle { cursor: grab; }
 .drag-handle:active { cursor: grabbing; }

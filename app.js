@@ -175,11 +175,14 @@ function renderSelected() {
         <div class="px">${q && !q.error ? fmtMoney(q.price, q.currency) : "—"}</div>
         <div class="chg ${signCls(chg || 0)}">${chg == null ? "" : `${fmtPct(chg)} today`}</div>
         <button class="btn primary" id="tradeBtn" style="margin-top:10px;width:100%">Trade · virtual</button>
+        <button class="btn" id="simToggleBtn" style="margin-top:6px;width:100%">⏪ What-if Simulator</button>
         <button class="btn" id="shareBtn" style="margin-top:6px;width:100%">🔗 Share link</button>
       </div>
     </div>`;
   const tb = document.getElementById("tradeBtn");
   if (tb) tb.onclick = () => openTradeModal(inst.sym);
+  const simB = document.getElementById("simToggleBtn");
+  if (simB) simB.onclick = () => toggleSimulator();
   const sb = document.getElementById("shareBtn");
   if (sb) sb.onclick = async () => {
     const url = `${location.origin}${location.pathname}#sym=${encodeURIComponent(inst.sym)}`;
@@ -624,14 +627,37 @@ function moveSection(key, dir) {
   for (const k of keys) simView.appendChild(document.querySelector(`[data-section="${k}"]`));
   saveSectionOrder();
 }
+export function openSimulator(scroll = true) {
+  const panel = document.querySelector('[data-section="controls"]');
+  if (!panel) return;
+  panel.classList.remove("collapsed");
+  collapse.set("controls", false);
+  if (scroll) {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.classList.add("flash");
+    setTimeout(() => panel.classList.remove("flash"), 1600);
+  }
+}
+export function toggleSimulator() {
+  const panel = document.querySelector('[data-section="controls"]');
+  if (!panel) return;
+  const isCol = panel.classList.contains("collapsed");
+  if (isCol) {
+    openSimulator(true);
+  } else {
+    panel.classList.add("collapsed");
+    collapse.set("controls", true);
+  }
+}
+
 let dragPanel = null;
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".collapse-btn, .move-up, .move-down");
+  const btn = e.target.closest(".collapse-btn, .move-up, .move-down, .open-sim-btn");
   if (!btn) return;
   const panel = btn.closest("[data-section]");
   if (!panel) return;
   const key = panel.dataset.section;
-  if (btn.classList.contains("collapse-btn")) {
+  if (btn.classList.contains("collapse-btn") || btn.classList.contains("open-sim-btn")) {
     const v = !panel.classList.contains("collapsed");
     panel.classList.toggle("collapsed", v);
     collapse.set(key, v);
@@ -661,10 +687,11 @@ document.addEventListener("dragend", () => {
   saveSectionOrder();
   dragPanel = null;
 });
-document.addEventListener("DOMContentLoaded", () => {
+function applySectionState() {
   sectionPanels().forEach((el) => el.classList.toggle("collapsed", collapse.get(el.dataset.section)));
   applySavedOrder();
-});
+}
+document.addEventListener("DOMContentLoaded", applySectionState);
 
 // ---------- init ----------
 (function init() {
@@ -683,6 +710,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initAlerts();
   initShreds();
   initSoundUI();
+  applySectionState();
 window.addEventListener("show-simulator", () => navSim?.click());
 document.getElementById("seeResultBtn")?.addEventListener("click", () => {
   const panel = document.querySelector('[data-section="result"]');

@@ -24,6 +24,7 @@
 
 | Feature | Code |
 |---|---|
+| Hidden by default with 1-click launcher buttons | `store.js` `collapse.get` · `app.js` `toggleSimulator/openSimulator` · `index.html` `#simToggleBtn/#openSimTopBtn` |
 | 4-field entry (date/amount/horizon/target) with sliders | `index.html` `.ctrl-card` · `app.js` |
 | Instrument context bar + timeline (entry→horizon, today marker) | `app.js` `compute()` (`simInstrument`, `simTimeline`) |
 | Narrative result sentence + inline mini-result + See-result btn | `app.js` (`simNarrative`, `simInlineResult`, `seeResultBtn`) |
