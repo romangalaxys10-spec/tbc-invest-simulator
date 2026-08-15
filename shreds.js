@@ -25,18 +25,7 @@ function render() {
   const box = $("shredsPanel");
   if (!box) return;
   if (!data) {
-    const topProgram = data.programs[0] || { name: "—", count: 0 };
-  const dexShare = data.dexCalls ? Math.round((topProgram.count / data.dexCalls) * 100) : 0;
-  const biggest = data.flows[0];
-  const stableVol = data.volUsd.USDC + data.volUsd.USDT;
-  const chips = [];
-  if (data.failRate > 0.15) chips.push({ cls: "bad", label: `⚠ chain congestion (${(data.failRate * 100).toFixed(0)}% fail)` });
-  if (data.tps > 4000) chips.push({ cls: "warn", label: "🔥 network hot" });
-  if (dexShare >= 50 && topProgram.count > 20) chips.push({ cls: "good", label: `⚡ ${topProgram.name} dominates (${dexShare}%)` });
-  if (biggest && biggest.usd >= 50000) chips.push({ cls: "warn", label: `🐋 whale print ${usd(biggest.usd)}` });
-  if (stableVol >= 100000) chips.push({ cls: "good", label: "💵 stablecoins staging" });
-  if (!chips.length) chips.push({ cls: "neutral", label: "😴 calm window" });
-  const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b> with a <b>${(data.failRate * 100).toFixed(1)}%</b> failure rate${data.failRate > 0.15 ? " — that's congestion/bot spam, expect slower fills and slippage" : " — healthy"}. ${topProgram.name} leads DEX routing with <b>${topProgram.count}</b> of ${data.dexCalls} calls${dexShare >= 50 ? " — heavy aggregator flow often front-runs volatile moves on SOL & meme coins" : ""}. ${biggest ? `The largest print moved <b>${usd(biggest.usd)}</b> in ${biggest.sym}${biggest.usd >= 50000 ? " — whale-sized; watch the receiving wallet's next swap" : ""}. ` : ""}Stablecoin flow is ${stableVol >= 100000 ? `<b>${usd(stableVol)}</b> — big buy/sell orders may be staging` : `quiet (${usd(stableVol)}) — no obvious staged orders`}.`;
+
 
   box.innerHTML = `<div class="chart-head"><h2>⚡ Crypto Shreds — raw on-chain telemetry</h2><button class="btn small" id="shredsRefresh">↻</button></div><p class="hint">Streaming raw Solana chain data…</p>`;
     wire();
@@ -50,6 +39,18 @@ function render() {
   const maxCount = Math.max(1, ...data.programs.map((p) => p.count));
   const t = new Date(data.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const usd = (v) => "$" + Math.round(v).toLocaleString("en-US");
+  const topProgram = data.programs[0] || { name: "—", count: 0 };
+const dexShare = data.dexCalls ? Math.round((topProgram.count / data.dexCalls) * 100) : 0;
+const biggest = data.flows[0];
+const stableVol = data.volUsd.USDC + data.volUsd.USDT;
+const chips = [];
+if (data.failRate > 0.15) chips.push({ cls: "bad", label: `⚠ chain congestion (${(data.failRate * 100).toFixed(0)}% fail)` });
+if (data.tps > 4000) chips.push({ cls: "warn", label: "🔥 network hot" });
+if (dexShare >= 50 && topProgram.count > 20) chips.push({ cls: "good", label: `⚡ ${topProgram.name} dominates (${dexShare}%)` });
+if (biggest && biggest.usd >= 50000) chips.push({ cls: "warn", label: `🐋 whale print ${usd(biggest.usd)}` });
+if (stableVol >= 100000) chips.push({ cls: "good", label: "💵 stablecoins staging" });
+if (!chips.length) chips.push({ cls: "neutral", label: "😴 calm window" });
+const insight = `The chain is running at <b>${data.tps.toLocaleString()} TPS</b> with a <b>${(data.failRate * 100).toFixed(1)}%</b> failure rate${data.failRate > 0.15 ? " — that's congestion/bot spam, expect slower fills and slippage" : " — healthy"}. ${topProgram.name} leads DEX routing with <b>${topProgram.count}</b> of ${data.dexCalls} calls${dexShare >= 50 ? " — heavy aggregator flow often front-runs volatile moves on SOL & meme coins" : ""}. ${biggest ? `The largest print moved <b>${usd(biggest.usd)}</b> in ${biggest.sym}${biggest.usd >= 50000 ? " — whale-sized; watch the receiving wallet's next swap" : ""}. ` : ""}Stablecoin flow is ${stableVol >= 100000 ? `<b>${usd(stableVol)}</b> — big buy/sell orders may be staging` : `quiet (${usd(stableVol)}) — no obvious staged orders`}.`;
   box.innerHTML = `
     <div class="chart-head">
       <h2>⚡ Crypto Shreds — raw on-chain telemetry</h2>
